@@ -1,0 +1,66 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # Firebase web config is public (shipped in the client bundle) — safe to inline.
+          VITE_FIREBASE_API_KEY: AIzaSyA42s5NB8t8_NbbXCakpriR_DyRa5_jRQw
+          VITE_FIREBASE_AUTH_DOMAIN: api-search-mgmt-system.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: api-search-mgmt-system
+          VITE_FIREBASE_STORAGE_BUCKET: api-search-mgmt-system.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "1079954974376"
+          VITE_FIREBASE_APP_ID: "1:1079954974376:web:983be9486fb6f6ac36049d"
+          VITE_FIREBASE_MEASUREMENT_ID: G-GWGB1NTG2L
+          VITE_ALLOWED_EMAILS: ${{ vars.ALLOWED_EMAILS || 'qa@muhayu.com' }}
+          # Empty → /proxy and /analyze are served same-origin by the Worker route.
+          VITE_WORKER_BASE: ""
+
+      # --- Static site → S3 bucket "api" (ap-northeast-2) ---
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Sync to S3
+        run: aws s3 sync dist/ s3://api --delete
+
+      # --- Proxy/analyzer → Cloudflare Worker (routes on api.sanghak.kr) ---
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+
+      # --- Bust Cloudflare cache so the new bundle is served immediately ---
+      - name: Purge Cloudflare cache
+        if: ${{ secrets.CLOUDFLARE_ZONE_ID != '' }}
+        run: |
+          curl -sf -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}'
