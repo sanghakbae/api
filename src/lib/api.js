@@ -75,11 +75,18 @@ export async function sendRequest(request) {
 
 // Ask the Worker to analyze a site URL and return discovered endpoints.
 export async function analyzeSite(url) {
-  const res = await fetch(`${BASE}/analyze`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ url }),
-  })
+  let res
+  try {
+    res = await fetch(`${BASE}/analyze`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url }),
+      signal: AbortSignal.timeout(30000),
+    })
+  } catch (e) {
+    if (e.name === 'TimeoutError') throw new Error('분석 시간 초과 (대상 사이트가 응답하지 않습니다)')
+    throw new Error(`분석 요청 실패: ${e.message}`)
+  }
   if (!res.ok) throw new Error(`분석 실패 (${res.status})`)
   return res.json()
 }

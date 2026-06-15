@@ -61,9 +61,15 @@ export default function Analyze() {
 
       {result && (
         <div className="analyze-result">
+          {result.reachable === false && (
+            <div className="error-box">
+              대상 사이트에 접근할 수 없습니다 — 사내망/VPN 전용이거나, 봇 차단으로 외부(클라우드) 접근이 막혀 있을 수 있습니다.
+              이런 사이트는 클라우드 분석기로는 볼 수 없습니다.
+            </div>
+          )}
           <div className="sources">
             {result.sources.length === 0
-              ? <span className="muted">탐지된 API 소스가 없습니다.</span>
+              ? <span className="muted">{result.reachable === false ? '접근 불가' : '탐지된 API 소스가 없습니다.'}</span>
               : result.sources.map((s, i) => <span key={i} className="source-tag">{s.type}</span>)}
             <span className="muted">· {result.count}개 엔드포인트</span>
           </div>
