@@ -5,8 +5,17 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -33,41 +42,21 @@ jobs:
           VITE_FIREBASE_APP_ID: "1:1079954974376:web:983be9486fb6f6ac36049d"
           VITE_FIREBASE_MEASUREMENT_ID: G-GWGB1NTG2L
           VITE_ALLOWED_EMAILS: ${{ vars.ALLOWED_EMAILS || 'qa@muhayu.com' }}
-          # Empty → /proxy and /analyze are served same-origin by the Worker route.
-          VITE_WORKER_BASE: ""
+          # Proxy/analyzer Worker (cross-origin; CORS handled in the Worker).
+          VITE_WORKER_BASE: https://api-manager-proxy.totoriverce.workers.dev
 
-      # --- Static site → S3 bucket "api" (ap-northeast-2) ---
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
+          path: dist
 
-      - name: Sync to S3
-        run: aws s3 sync dist/ s3://api --delete
-
-      # --- Proxy/analyzer → Cloudflare Worker (routes on api.sanghak.kr) ---
-      - name: Deploy Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-
-      # --- Bust Cloudflare cache so the new bundle is served immediately ---
-      # (secrets can't be used in `if:`, so we guard inside the shell instead)
-      - name: Purge Cloudflare cache
-        env:
-          CF_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          if [ -z "$CF_ZONE_ID" ]; then
-            echo "CLOUDFLARE_ZONE_ID not set — skipping cache purge."
-            exit 0
-          fi
-          curl -sf -X POST \
-            "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
-            -H "Authorization: Bearer $CF_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data '{"purge_everything":true}'
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

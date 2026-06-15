@@ -54,24 +54,23 @@ npm run dev          # 터미널 2 — Vite (:5173)
 ```
 로컬에서는 Vite가 `/proxy`·`/analyze`를 `localhost:8787`로 포워딩합니다.
 
-## 배포 (GitHub Actions → S3 + Cloudflare Worker)
-`main`에 push하면 `.github/workflows/deploy.yml`이 자동 실행됩니다:
-1. 빌드 → `dist/`를 **S3 버킷 `api`** (ap-northeast-2)에 sync
-2. **Cloudflare Worker** 배포 (`api.sanghak.kr/proxy`, `/analyze` 라우트)
-3. Cloudflare 캐시 purge
+## 배포
 
-### 필요한 GitHub Secrets (저장소 Settings → Secrets and variables → Actions)
-| 이름 | 용도 |
-|------|------|
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | S3 업로드 권한 (`s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket` on `api`) |
-| `CLOUDFLARE_API_TOKEN` | Workers 배포 + 캐시 purge 권한 |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 계정 ID |
-| `CLOUDFLARE_ZONE_ID` | (선택) 캐시 purge용 `sanghak.kr` 존 ID |
+### 프론트엔드 → GitHub Pages (`api.sanghak.kr`)
+`main`에 push하면 `.github/workflows/deploy.yml`이 빌드 후 GitHub Pages로 배포합니다.
+커스텀 도메인은 `public/CNAME`(api.sanghak.kr)로 유지됩니다. 별도 시크릿 불필요.
 
-### 도메인 연결 (1회 수동)
-- **S3**: 버킷 `api`에 정적 웹사이트 호스팅 활성화 + 퍼블릭 읽기 정책
-- **Cloudflare DNS**: `api` → S3 웹사이트 엔드포인트(`api.s3-website.ap-northeast-2.amazonaws.com`)로 **CNAME, Proxied(주황 구름)**
-  - 주황 구름이어야 HTTPS 종단 + Worker 라우트(`/proxy`,`/analyze`)가 동작합니다.
+### 프록시/분석 → Cloudflare Worker (workers.dev)
+별도 백엔드. 코드 변경 시 수동 배포:
+```bash
+npm run worker:deploy   # → https://api-manager-proxy.totoriverce.workers.dev
+```
+프론트는 빌드 시 `VITE_WORKER_BASE`(워크플로에 설정)로 이 Worker를 cross-origin 호출하며,
+Worker가 CORS를 처리합니다.
+
+### 1회 수동 설정
+- **Firebase Authentication → Settings → 승인된 도메인**에 `api.sanghak.kr` 추가 (Google 로그인 팝업 허용)
+- **Firestore 보안 규칙** 게시 (위 2번 항목)
 
 ## 데이터 구조 (Firestore)
 ```

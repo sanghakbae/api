@@ -2,11 +2,7 @@ name = "api-manager-proxy"
 main = "worker/index.js"
 compatibility_date = "2024-12-01"
 
-# Same-domain Worker routes: these paths on api.sanghak.kr are served by the
-# Worker (proxy + analyzer); everything else falls through to the S3 origin.
-# Requires sanghak.kr to be on Cloudflare and the api.sanghak.kr DNS record to
-# be proxied (orange cloud).
-routes = [
-  { pattern = "api.sanghak.kr/proxy", zone_name = "sanghak.kr" },
-  { pattern = "api.sanghak.kr/analyze", zone_name = "sanghak.kr" },
-]
+# api.sanghak.kr is served by GitHub Pages (DNS-only, not Cloudflare-proxied),
+# so same-domain Worker routes don't apply. Instead the Worker is exposed on its
+# workers.dev URL and the frontend calls it cross-origin (CORS handled in code).
+workers_dev = true
