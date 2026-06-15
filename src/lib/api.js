@@ -21,6 +21,23 @@ export function applyKey(request, key) {
   return out
 }
 
+// Inject a saved session's cookies as a Cookie header (optional).
+export function applySession(request, session) {
+  const out = { ...request, headers: [...(request.headers || [])] }
+  if (!session || !session.cookie) return out
+  out.headers.push({ key: 'Cookie', value: session.cookie, enabled: true })
+  return out
+}
+
+// Turn an array of Set-Cookie response headers into a single Cookie request string.
+// "sid=abc; Path=/; HttpOnly" -> "sid=abc"
+export function cookiesFromSetCookie(setCookie = []) {
+  return setCookie
+    .map((c) => (c || '').split(';')[0].trim())
+    .filter(Boolean)
+    .join('; ')
+}
+
 function buildUrl(url, params) {
   try {
     const u = new URL(url)

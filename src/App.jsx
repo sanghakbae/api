@@ -5,6 +5,7 @@ import Login from './pages/Login.jsx'
 import Tester from './pages/Tester.jsx'
 import SavedList from './pages/SavedList.jsx'
 import Keys from './pages/Keys.jsx'
+import Sessions from './pages/Sessions.jsx'
 import Analyze from './pages/Analyze.jsx'
 
 // Shared "active request" so Saved/Analyze can load a request into the Tester.
@@ -20,6 +21,7 @@ export const blankRequest = () => ({
   params: [],
   body: '',
   keyId: '',
+  sessionId: '',
 })
 
 export default function App() {
@@ -41,6 +43,7 @@ export default function App() {
             <Route path="/tester" element={<Tester key={active.id || 'new'} />} />
             <Route path="/saved" element={<SavedList />} />
             <Route path="/keys" element={<Keys />} />
+            <Route path="/sessions" element={<Sessions />} />
             <Route path="/analyze" element={<Analyze />} />
             <Route path="*" element={<Navigate to="/tester" replace />} />
           </Routes>
@@ -61,6 +64,7 @@ function Sidebar() {
         <NavLink to="/saved" className={link}>📁 저장된 API</NavLink>
         <NavLink to="/analyze" className={link}>🔍 URL 분석</NavLink>
         <NavLink to="/keys" className={link}>🔑 API 키</NavLink>
+        <NavLink to="/sessions" className={link}>🍪 세션</NavLink>
       </nav>
       <div className="user">
         <img src={user.photoURL} alt="" referrerPolicy="no-referrer" />

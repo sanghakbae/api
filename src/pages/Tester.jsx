@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useWorkbench } from '../App.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import KeyValueEditor from '../components/KeyValueEditor.jsx'
-import { sendRequest, applyKey } from '../lib/api.js'
-import { saveRequest, listKeys } from '../lib/store.js'
+import { sendRequest, applyKey, applySession, cookiesFromSetCookie } from '../lib/api.js'
+import { saveRequest, listKeys, listSessions, saveSession } from '../lib/store.js'
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 
@@ -13,12 +13,14 @@ export default function Tester() {
   const [req, setReq] = useState(active)
   const [tab, setTab] = useState('params')
   const [keys, setKeys] = useState([])
+  const [sessions, setSessions] = useState([])
   const [response, setResponse] = useState(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [savedMsg, setSavedMsg] = useState('')
 
-  useEffect(() => { listKeys(user.uid).then(setKeys).catch(() => {}) }, [user.uid])
+  const loadSessions = () => listSessions(user.uid).then(setSessions).catch(() => {})
+  useEffect(() => { listKeys(user.uid).then(setKeys).catch(() => {}); loadSessions() }, [user.uid])
 
   const patch = (p) => setReq((r) => ({ ...r, ...p }))
 
@@ -26,14 +28,27 @@ export default function Tester() {
     if (!req.url) { setError('URL을 입력하세요'); return }
     setSending(true); setError(null); setResponse(null)
     try {
-      const withKey = applyKey(req, keys.find((k) => k.id === req.keyId))
-      const res = await sendRequest(withKey)
+      let prepared = applyKey(req, keys.find((k) => k.id === req.keyId))
+      prepared = applySession(prepared, sessions.find((s) => s.id === req.sessionId))
+      const res = await sendRequest(prepared)
       setResponse(res)
     } catch (e) {
       setError(e.message)
     } finally {
       setSending(false)
     }
+  }
+
+  // Capture Set-Cookie from the last response and store it as a reusable session.
+  const saveCookies = async (setCookie) => {
+    const cookie = cookiesFromSetCookie(setCookie)
+    if (!cookie) return
+    const name = prompt('세션 이름을 입력하세요', `${req.name || req.url} 세션`)
+    if (!name) return
+    const id = await saveSession(user.uid, { name, cookie })
+    await loadSessions()
+    patch({ sessionId: id })
+    setSavedMsg('세션 저장됨 ✓'); setTimeout(() => setSavedMsg(''), 2000)
   }
 
   const save = async () => {
@@ -86,6 +101,11 @@ export default function Tester() {
           <option value="">없음</option>
           {keys.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
         </select>
+        <label>세션(쿠키):</label>
+        <select value={req.sessionId} onChange={(e) => patch({ sessionId: e.target.value })}>
+          <option value="">없음</option>
+          {sessions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
       </div>
 
       <div className="tabs">
@@ -110,21 +130,27 @@ export default function Tester() {
       </div>
 
       {error && <div className="error-box">{error}</div>}
-      {response && <ResponseView res={response} />}
+      {response && <ResponseView res={response} onSaveCookies={saveCookies} />}
     </div>
   )
 }
 
-function ResponseView({ res }) {
+function ResponseView({ res, onSaveCookies }) {
   const [tab, setTab] = useState('body')
   const ok = res.status >= 200 && res.status < 300
   const pretty = res.json ? JSON.stringify(res.json, null, 2) : res.body
+  const hasCookies = res.setCookie && res.setCookie.length > 0
   return (
     <div className="response">
       <div className="resp-meta">
         <span className={ok ? 'status ok' : 'status err'}>{res.status} {res.statusText}</span>
         <span className="muted">{res.elapsed} ms</span>
         <span className="muted">{formatSize(res.size)}</span>
+        {hasCookies && (
+          <button className="link-btn" onClick={() => onSaveCookies(res.setCookie)}>
+            🍪 세션으로 저장 ({res.setCookie.length})
+          </button>
+        )}
       </div>
       <div className="tabs">
         <button className={tab === 'body' ? 'tab active' : 'tab'} onClick={() => setTab('body')}>본문</button>

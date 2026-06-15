@@ -16,6 +16,7 @@ import { db } from '../firebase'
 
 const reqCol = (uid) => collection(db, 'users', uid, 'requests')
 const keyCol = (uid) => collection(db, 'users', uid, 'apikeys')
+const sessCol = (uid) => collection(db, 'users', uid, 'sessions')
 
 // ---- Saved requests ----
 export async function listRequests(uid) {
@@ -56,4 +57,24 @@ export async function saveKey(uid, data) {
 
 export async function deleteKey(uid, id) {
   await deleteDoc(doc(keyCol(uid), id))
+}
+
+// ---- Sessions (cookie jar) ----
+export async function listSessions(uid) {
+  const snap = await getDocs(query(sessCol(uid), orderBy('name')))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function saveSession(uid, data) {
+  if (data.id) {
+    const { id, ...rest } = data
+    await setDoc(doc(sessCol(uid), id), rest, { merge: true })
+    return id
+  }
+  const ref = await addDoc(sessCol(uid), data)
+  return ref.id
+}
+
+export async function deleteSession(uid, id) {
+  await deleteDoc(doc(sessCol(uid), id))
 }

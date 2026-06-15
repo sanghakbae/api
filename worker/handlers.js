@@ -19,6 +19,9 @@ export async function handleProxy(request) {
   const text = await upstream.text()
   const resHeaders = {}
   upstream.headers.forEach((v, k) => (resHeaders[k] = v))
+  // Set-Cookie must be read as a list (getSetCookie) — forEach folds it into one
+  // comma-joined string which corrupts cookies. Surface it so the UI can save a session.
+  const setCookie = upstream.headers.getSetCookie ? upstream.headers.getSetCookie() : []
   let parsed
   const ct = upstream.headers.get('content-type') || ''
   if (ct.includes('application/json')) {
@@ -28,6 +31,7 @@ export async function handleProxy(request) {
     status: upstream.status,
     statusText: upstream.statusText,
     headers: resHeaders,
+    setCookie,
     contentType: ct,
     body: text,
     json: parsed,
