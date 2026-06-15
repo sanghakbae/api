@@ -3,7 +3,7 @@
 // sites can be analyzed through a LOCAL worker running on the user's machine
 // (npm run worker:dev → http://localhost:8787), which sits on the same network.
 const ENV_BASE = import.meta.env.VITE_WORKER_BASE || ''
-export const LOCAL_BASE = 'http://localhost:8787'
+export const LOCAL_BASE = 'http://localhost:8799'
 
 export function getWorkerBase() {
   try { return localStorage.getItem('workerBase') || ENV_BASE } catch { return ENV_BASE }

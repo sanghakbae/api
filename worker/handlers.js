@@ -5,6 +5,9 @@ export const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'content-type',
+  // Allow an HTTPS site (e.g. api.sanghak.kr) to call a LOCAL worker on the
+  // user's machine (Chrome Private Network Access requires this on preflight).
+  'Access-Control-Allow-Private-Network': 'true',
 }
 
 export const json = (obj, status = 200) =>

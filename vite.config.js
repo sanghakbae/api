@@ -7,8 +7,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/proxy': 'http://localhost:8787',
-      '/analyze': 'http://localhost:8787',
+      '/proxy': 'http://localhost:8799',
+      '/analyze': 'http://localhost:8799',
     },
   },
 })
