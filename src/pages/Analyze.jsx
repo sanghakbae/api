@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWorkbench, blankRequest } from '../App.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
-import { analyzeSite, hostOf } from '../lib/api.js'
+import { analyzeSite, hostOf, getWorkerBase, setWorkerBase, LOCAL_BASE } from '../lib/api.js'
 import { saveRequest, saveSession } from '../lib/store.js'
 
 export default function Analyze() {
@@ -16,8 +16,14 @@ export default function Analyze() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [msg, setMsg] = useState('')
+  const [local, setLocal] = useState(getWorkerBase() === LOCAL_BASE)
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2500) }
+
+  const switchAnalyzer = (useLocal) => {
+    setWorkerBase(useLocal ? LOCAL_BASE : '')
+    setLocal(useLocal)
+  }
 
   const run = async () => {
     if (!url) return
@@ -69,6 +75,19 @@ export default function Analyze() {
         사이트 주소를 입력하면 OpenAPI/Swagger 스펙, GraphQL 인트로스펙션, JS 번들 내 fetch/axios 호출을 탐지해 엔드포인트를 추출합니다.
         <br />공개 사이트는 그냥 분석하고, 로그인이 필요한 사이트는 아래 “🔒 쿠키”에 로그인 쿠키를 넣어 분석하세요.
       </p>
+
+      <div className="analyzer-loc">
+        <span className="muted small">분석기 위치:</span>
+        <div className="seg">
+          <button className={!local ? 'seg-btn on' : 'seg-btn'} onClick={() => switchAnalyzer(false)}>☁️ 클라우드</button>
+          <button className={local ? 'seg-btn on' : 'seg-btn'} onClick={() => switchAnalyzer(true)}>💻 로컬(내 PC)</button>
+        </div>
+        <span className="muted small">
+          {local
+            ? '사내망 사이트는 로컬로. 이 PC에서 npm run worker:dev 실행 필요 (localhost:8787).'
+            : '공개 인터넷 사이트용. 사내망/VPN 전용 사이트는 “로컬”로 전환하세요.'}
+        </span>
+      </div>
       <div className="url-bar">
         <input
           className="url-input"
@@ -114,7 +133,12 @@ export default function Analyze() {
           {result.reachable === false && (
             <div className="error-box">
               대상 사이트에 접근할 수 없습니다 — 사내망/VPN 전용이거나, 봇 차단으로 외부(클라우드) 접근이 막혀 있을 수 있습니다.
-              이런 사이트는 클라우드 분석기로는 볼 수 없습니다.
+              {!local && (
+                <>
+                  <br />사내망 사이트라면 <button className="link-btn" onClick={() => switchAnalyzer(true)}>💻 로컬 분석기로 전환</button> 후
+                  이 PC에서 <code>npm run worker:dev</code>를 실행하고 다시 분석하세요.
+                </>
+              )}
             </div>
           )}
           <div className="sources">

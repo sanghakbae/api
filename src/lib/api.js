@@ -1,5 +1,17 @@
 // Client for the Cloudflare Worker: request proxy + URL analyzer.
-const BASE = import.meta.env.VITE_WORKER_BASE || ''
+// The worker base is overridable at runtime (localStorage) so internal/VPN-only
+// sites can be analyzed through a LOCAL worker running on the user's machine
+// (npm run worker:dev → http://localhost:8787), which sits on the same network.
+const ENV_BASE = import.meta.env.VITE_WORKER_BASE || ''
+export const LOCAL_BASE = 'http://localhost:8787'
+
+export function getWorkerBase() {
+  try { return localStorage.getItem('workerBase') || ENV_BASE } catch { return ENV_BASE }
+}
+export function setWorkerBase(v) {
+  try { v ? localStorage.setItem('workerBase', v) : localStorage.removeItem('workerBase') } catch { /* ignore */ }
+}
+export function isLocalAnalyzer() { return getWorkerBase() === LOCAL_BASE }
 
 // Replace {{KEY:name}} placeholders with stored API-key values, and apply a
 // key's auth injection (header / query / bearer) onto the outgoing request.
@@ -76,7 +88,7 @@ export async function sendRequest(request) {
   }
   const target = buildUrl(request.url, request.params)
   const started = performance.now()
-  const res = await fetch(`${BASE}/proxy`, {
+  const res = await fetch(`${getWorkerBase()}/proxy`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -96,7 +108,7 @@ export async function sendRequest(request) {
 export async function analyzeSite(url, cookie = '') {
   let res
   try {
-    res = await fetch(`${BASE}/analyze`, {
+    res = await fetch(`${getWorkerBase()}/analyze`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ url, cookie: cookie.trim() || undefined }),
@@ -104,6 +116,7 @@ export async function analyzeSite(url, cookie = '') {
     })
   } catch (e) {
     if (e.name === 'TimeoutError') throw new Error('분석 시간 초과 (대상 사이트가 응답하지 않습니다)')
+    if (isLocalAnalyzer()) throw new Error('로컬 분석기에 연결할 수 없습니다. 이 PC에서 `npm run worker:dev`가 실행 중인지 확인하세요 (localhost:8787).')
     throw new Error(`분석 요청 실패: ${e.message}`)
   }
   if (!res.ok) throw new Error(`분석 실패 (${res.status})`)
