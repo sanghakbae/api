@@ -205,6 +205,13 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
 /* Analyze */
+.cookie-row { display: flex; flex-direction: column; gap: 6px; margin: -4px 0 8px; }
+.cookie-input {
+  width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 9px 11px; font-family: 'SF Mono', Menlo, monospace; font-size: 12px;
+  resize: vertical; line-height: 1.5;
+}
+.cookie-input:focus { border-color: var(--accent); }
 .sources { display: flex; align-items: center; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
 .source-tag { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px; letter-spacing: .3px; text-transform: uppercase; }
 .ep-actions { display: flex; gap: 4px; flex-shrink: 0; }

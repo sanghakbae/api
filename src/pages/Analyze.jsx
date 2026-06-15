@@ -10,6 +10,8 @@ export default function Analyze() {
   const { setActive } = useWorkbench()
   const navigate = useNavigate()
   const [url, setUrl] = useState('')
+  const [cookie, setCookie] = useState('')
+  const [showCookie, setShowCookie] = useState(false)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -18,7 +20,7 @@ export default function Analyze() {
     if (!url) return
     setLoading(true); setError(null); setResult(null)
     try {
-      setResult(await analyzeSite(url))
+      setResult(await analyzeSite(url, cookie))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -42,7 +44,8 @@ export default function Analyze() {
     <div className="page-pad">
       <header className="page-head"><h2>URL 분석</h2></header>
       <p className="muted small">
-        사이트 주소를 입력하면 OpenAPI/Swagger 스펙, GraphQL 인트로스펙션, 페이지 내 fetch/axios 호출을 탐지해 엔드포인트를 추출합니다.
+        사이트 주소를 입력하면 OpenAPI/Swagger 스펙, GraphQL 인트로스펙션, JS 번들 내 fetch/axios 호출을 탐지해 엔드포인트를 추출합니다.
+        <br/>공개 사이트는 그냥 분석하고, 로그인이 필요한 사이트는 아래 “🔒 쿠키”에 로그인 쿠키를 넣어 분석하세요.
       </p>
       <div className="url-bar">
         <input
@@ -55,6 +58,24 @@ export default function Analyze() {
         <button className="btn primary" onClick={run} disabled={loading}>
           {loading ? '분석 중…' : '분석'}
         </button>
+      </div>
+
+      <div className="cookie-row">
+        <button className="link-btn" onClick={() => setShowCookie((v) => !v)}>
+          🔒 로그인 쿠키 {cookie ? '(입력됨)' : '(선택)'} {showCookie ? '▲' : '▼'}
+        </button>
+        {showCookie && (
+          <>
+            <textarea
+              className="cookie-input"
+              rows={2}
+              placeholder="로그인이 필요한 사이트만: 브라우저 F12 → Application → Cookies에서 복사해 붙여넣기   예) sid=abc; token=xyz"
+              value={cookie}
+              onChange={(e) => setCookie(e.target.value)}
+            />
+            <span className="muted small">공개 사이트는 비워두세요. 입력하면 이 쿠키로 로그인된 상태로 분석합니다.</span>
+          </>
+        )}
       </div>
 
       {error && <div className="error-box">{error}</div>}

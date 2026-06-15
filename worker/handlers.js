@@ -51,17 +51,22 @@ export async function handleProxy(request) {
 }
 
 export async function handleAnalyze(request) {
-  const { url } = await request.json()
+  const { url, cookie } = await request.json()
   if (!url) return json({ error: 'url required' }, 400)
   const origin = new URL(url).origin
   const endpoints = []
   const sources = []
   let rootReachable = false
 
+  // Optional login cookie: when provided, attach it to every probe so the
+  // analyzer can see behind a login. Public sites just leave it empty.
+  const authHeaders = cookie ? { cookie } : {}
+
   // Each probe gets its own timeout so a slow / auth-gated / unresponsive target
   // can never hang the whole analysis.
   const TIMEOUT_MS = 6000
-  const fetchT = (u, opts = {}) => fetch(u, { ...opts, signal: AbortSignal.timeout(TIMEOUT_MS) })
+  const fetchT = (u, opts = {}) =>
+    fetch(u, { ...opts, headers: { ...authHeaders, ...(opts.headers || {}) }, signal: AbortSignal.timeout(TIMEOUT_MS) })
 
   // Extract API-looking URLs from a blob of HTML/JS source text into `found`.
   const PATTERNS = [

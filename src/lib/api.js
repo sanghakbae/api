@@ -74,13 +74,14 @@ export async function sendRequest(request) {
 }
 
 // Ask the Worker to analyze a site URL and return discovered endpoints.
-export async function analyzeSite(url) {
+// `cookie` is optional — pass it to analyze a login-protected site.
+export async function analyzeSite(url, cookie = '') {
   let res
   try {
     res = await fetch(`${BASE}/analyze`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, cookie: cookie.trim() || undefined }),
       signal: AbortSignal.timeout(30000),
     })
   } catch (e) {
