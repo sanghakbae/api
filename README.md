@@ -43,12 +43,8 @@ service cloud.firestore {
 ```
 
 ### 3. Cloudflare Worker (프록시 + 분석)
-```bash
-npx wrangler login
-npm run worker:deploy
-```
-배포 후 출력된 `*.workers.dev` URL을 `.env`의 `VITE_WORKER_BASE`에 넣습니다.
-(로컬 개발 시엔 `VITE_WORKER_BASE`를 비워두면 Vite 프록시가 `localhost:8787`로 포워딩)
+프로덕션에서는 `api.sanghak.kr/proxy`, `api.sanghak.kr/analyze`를 Worker 라우트가 처리합니다
+(`wrangler.toml`의 `routes`). 따라서 프론트의 `VITE_WORKER_BASE`는 비워둡니다(same-origin).
 
 ## 개발
 ```bash
@@ -56,11 +52,26 @@ npm install
 npm run worker:dev   # 터미널 1 — 프록시/분석 Worker (:8787)
 npm run dev          # 터미널 2 — Vite (:5173)
 ```
+로컬에서는 Vite가 `/proxy`·`/analyze`를 `localhost:8787`로 포워딩합니다.
 
-## 배포
-- 프론트엔드: `npm run build` → `dist/`를 S3/Cloudflare Pages 등에 호스팅
-- Worker: `npm run worker:deploy`
-- DNS: Cloudflare에서 도메인 연결
+## 배포 (GitHub Actions → S3 + Cloudflare Worker)
+`main`에 push하면 `.github/workflows/deploy.yml`이 자동 실행됩니다:
+1. 빌드 → `dist/`를 **S3 버킷 `api`** (ap-northeast-2)에 sync
+2. **Cloudflare Worker** 배포 (`api.sanghak.kr/proxy`, `/analyze` 라우트)
+3. Cloudflare 캐시 purge
+
+### 필요한 GitHub Secrets (저장소 Settings → Secrets and variables → Actions)
+| 이름 | 용도 |
+|------|------|
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | S3 업로드 권한 (`s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket` on `api`) |
+| `CLOUDFLARE_API_TOKEN` | Workers 배포 + 캐시 purge 권한 |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 계정 ID |
+| `CLOUDFLARE_ZONE_ID` | (선택) 캐시 purge용 `sanghak.kr` 존 ID |
+
+### 도메인 연결 (1회 수동)
+- **S3**: 버킷 `api`에 정적 웹사이트 호스팅 활성화 + 퍼블릭 읽기 정책
+- **Cloudflare DNS**: `api` → S3 웹사이트 엔드포인트(`api.s3-website.ap-northeast-2.amazonaws.com`)로 **CNAME, Proxied(주황 구름)**
+  - 주황 구름이어야 HTTPS 종단 + Worker 라우트(`/proxy`,`/analyze`)가 동작합니다.
 
 ## 데이터 구조 (Firestore)
 ```
