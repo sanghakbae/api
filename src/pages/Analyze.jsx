@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWorkbench, blankRequest } from '../App.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
-import { analyzeSite } from '../lib/api.js'
-import { saveRequest } from '../lib/store.js'
+import { analyzeSite, hostOf } from '../lib/api.js'
+import { saveRequest, saveSession } from '../lib/store.js'
 
 export default function Analyze() {
   const { user } = useAuth()
@@ -15,6 +15,9 @@ export default function Analyze() {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [msg, setMsg] = useState('')
+
+  const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2500) }
 
   const run = async () => {
     if (!url) return
@@ -28,24 +31,43 @@ export default function Analyze() {
     }
   }
 
+  // Persist the login cookie as a domain session so the Tester auto-applies it.
+  const saveDomainSession = async () => {
+    const domain = hostOf(url)
+    if (!domain || !cookie.trim()) return
+    try {
+      await saveSession(user.uid, { name: domain, domain, cookie: cookie.trim() })
+      flash(`'${domain}' 세션 저장됨 — 테스터에서 자동 적용됩니다 ✓`)
+    } catch (e) {
+      setError(`세션 저장 실패: ${e.message}`)
+    }
+  }
+
   const toTester = (ep) => {
     setActive({ ...blankRequest(), name: ep.summary || ep.url, method: ep.method, url: ep.url })
     navigate('/tester')
   }
 
   const saveEp = async (ep) => {
-    await saveRequest(user.uid, {
-      ...blankRequest(), name: ep.summary || `${ep.method} ${ep.url}`, method: ep.method, url: ep.url,
-    })
-    alert('저장됨 ✓')
+    try {
+      await saveRequest(user.uid, {
+        ...blankRequest(), name: ep.summary || `${ep.method} ${ep.url}`, method: ep.method, url: ep.url,
+      })
+      flash('저장됨 ✓')
+    } catch (e) {
+      setError(`저장 실패: ${e.message}`)
+    }
   }
 
   return (
     <div className="page-pad">
-      <header className="page-head"><h2>URL 분석</h2></header>
+      <header className="page-head">
+        <h2>URL 분석</h2>
+        {msg && <span className="ok">{msg}</span>}
+      </header>
       <p className="muted small">
         사이트 주소를 입력하면 OpenAPI/Swagger 스펙, GraphQL 인트로스펙션, JS 번들 내 fetch/axios 호출을 탐지해 엔드포인트를 추출합니다.
-        <br/>공개 사이트는 그냥 분석하고, 로그인이 필요한 사이트는 아래 “🔒 쿠키”에 로그인 쿠키를 넣어 분석하세요.
+        <br />공개 사이트는 그냥 분석하고, 로그인이 필요한 사이트는 아래 “🔒 쿠키”에 로그인 쿠키를 넣어 분석하세요.
       </p>
       <div className="url-bar">
         <input
@@ -73,14 +95,21 @@ export default function Analyze() {
               value={cookie}
               onChange={(e) => setCookie(e.target.value)}
             />
-            <span className="muted small">공개 사이트는 비워두세요. 입력하면 이 쿠키로 로그인된 상태로 분석합니다.</span>
+            <div className="cookie-help">
+              <span className="muted small">공개 사이트는 비워두세요. 입력하면 이 쿠키로 로그인된 상태로 분석합니다.</span>
+              {cookie.trim() && hostOf(url) && (
+                <button className="link-btn" onClick={saveDomainSession}>🍪 '{hostOf(url)}' 세션으로 저장</button>
+              )}
+            </div>
           </>
         )}
       </div>
 
       {error && <div className="error-box">{error}</div>}
 
-      {result && (
+      {loading && <div className="loading"><span className="spinner" /> 분석 중…</div>}
+
+      {result && !loading && (
         <div className="analyze-result">
           {result.reachable === false && (
             <div className="error-box">
@@ -90,7 +119,7 @@ export default function Analyze() {
           )}
           <div className="sources">
             {result.sources.length === 0
-              ? <span className="muted">{result.reachable === false ? '접근 불가' : '탐지된 API 소스가 없습니다.'}</span>
+              ? <span className="muted">{result.reachable === false ? '접근 불가' : '탐지된 API 엔드포인트가 없습니다 (SPA·로그인 필요·비표준 경로일 수 있음).'}</span>
               : result.sources.map((s, i) => <span key={i} className="source-tag">{s.type}</span>)}
             <span className="muted">· {result.count}개 엔드포인트</span>
           </div>

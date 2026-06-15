@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { listSessions, saveSession, deleteSession } from '../lib/store.js'
 
-const emptySession = () => ({ name: '', cookie: '' })
+const emptySession = () => ({ name: '', domain: '', cookie: '' })
 
 export default function Sessions() {
   const { user } = useAuth()
@@ -48,17 +48,19 @@ export default function Sessions() {
       {err && <div className="error-box">{err}</div>}
 
       <p className="muted small">
-        쿠키 기반 인증 세션(옵션). 테스터에서 세션을 선택하면 <code>Cookie</code> 헤더로 자동 주입됩니다.
-        로그인 요청을 보낸 뒤 응답의 <code>Set-Cookie</code>를 “🍪 세션으로 저장”으로 바로 만들 수도 있습니다.
+        로그인이 필요한 사이트의 쿠키를 <b>도메인별</b>로 저장해두면, 테스터에서 그 도메인 요청에 <code>Cookie</code>가 자동 적용됩니다.
+        보통은 URL 분석/테스터 화면에서 바로 저장되니, 여기선 직접 관리만 하면 됩니다.
       </p>
 
-      {sessions.length === 0 && !editing && <p className="muted">저장된 세션이 없습니다.</p>}
+      {sessions.length === 0 && !editing && (
+        <div className="empty">아직 저장된 세션이 없습니다. 로그인이 필요한 사이트를 분석/테스트할 때 쿠키를 넣으면 여기에 쌓입니다.</div>
+      )}
 
       <ul className="key-list">
         {sessions.map((s) => (
           <li key={s.id} className="key-item">
             <div style={{ minWidth: 0 }}>
-              <div className="key-name">{s.name}</div>
+              <div className="key-name">{s.name} {s.domain && <span className="chip">{s.domain}</span>}</div>
               <div className="key-detail muted small" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.cookie}</div>
             </div>
             <div className="key-actions">
@@ -73,7 +75,8 @@ export default function Sessions() {
         <form className="key-form" onSubmit={submit}>
           <h3>{editing.id ? '세션 편집' : '새 세션'}</h3>
           <label>이름<input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="예: 운영 로그인" /></label>
-          <label>쿠키<textarea rows={3} value={editing.cookie} onChange={(e) => setEditing({ ...editing, cookie: e.target.value })} placeholder="sid=abc123; token=xyz" style={{ background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 7, padding: '8px 10px', fontFamily: 'SF Mono, Menlo, monospace', resize: 'vertical' }} /></label>
+          <label>도메인 (자동 적용 대상)<input value={editing.domain || ''} onChange={(e) => setEditing({ ...editing, domain: e.target.value })} placeholder="예: api.example.com" /></label>
+          <label>쿠키<textarea rows={3} value={editing.cookie} onChange={(e) => setEditing({ ...editing, cookie: e.target.value })} placeholder="sid=abc123; token=xyz" /></label>
           <div className="form-actions">
             <button type="button" className="btn ghost" onClick={() => setEditing(null)}>취소</button>
             <button type="submit" className="btn primary">저장</button>

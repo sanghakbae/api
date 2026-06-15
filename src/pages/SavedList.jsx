@@ -39,7 +39,7 @@ export default function SavedList() {
         <input className="search" placeholder="검색…" value={filter} onChange={(e) => setFilter(e.target.value)} />
       </header>
       {shown.length === 0 ? (
-        <p className="muted">저장된 요청이 없습니다. 테스터에서 요청을 만들고 저장하세요.</p>
+        <div className="empty">{filter ? '검색 결과가 없습니다.' : '저장된 요청이 없습니다. 테스터에서 요청을 만들고 💾 저장하세요.'}</div>
       ) : (
         <ul className="saved-list">
           {shown.map((item) => (

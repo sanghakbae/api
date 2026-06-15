@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useWorkbench } from '../App.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import KeyValueEditor from '../components/KeyValueEditor.jsx'
-import { sendRequest, applyKey, applySession, cookiesFromSetCookie } from '../lib/api.js'
+import { sendRequest, applyKey, applySession, cookiesFromSetCookie, hostOf, toCurl } from '../lib/api.js'
 import { saveRequest, listKeys, listSessions, saveSession } from '../lib/store.js'
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
@@ -17,21 +17,30 @@ export default function Tester() {
   const [response, setResponse] = useState(null)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
-  const [savedMsg, setSavedMsg] = useState('')
+  const [msg, setMsg] = useState('')
 
   const loadSessions = () => listSessions(user.uid).then(setSessions).catch(() => {})
   useEffect(() => { listKeys(user.uid).then(setKeys).catch(() => {}); loadSessions() }, [user.uid])
 
   const patch = (p) => setReq((r) => ({ ...r, ...p }))
+  const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2000) }
+
+  // Resolve which session applies: explicit pick, or auto-match by the URL's domain.
+  const host = hostOf(req.url)
+  const domainSession = sessions.find((s) => s.domain && host && s.domain === host)
+  const sessionObj =
+    req.sessionId === 'none' ? null
+      : req.sessionId ? sessions.find((s) => s.id === req.sessionId)
+        : domainSession
+  const autoApplied = !req.sessionId && domainSession
+
+  const prepared = () => applySession(applyKey(req, keys.find((k) => k.id === req.keyId)), sessionObj)
 
   const send = async () => {
     if (!req.url) { setError('URL을 입력하세요'); return }
     setSending(true); setError(null); setResponse(null)
     try {
-      let prepared = applyKey(req, keys.find((k) => k.id === req.keyId))
-      prepared = applySession(prepared, sessions.find((s) => s.id === req.sessionId))
-      const res = await sendRequest(prepared)
-      setResponse(res)
+      setResponse(await sendRequest(prepared()))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -39,31 +48,33 @@ export default function Tester() {
     }
   }
 
-  // Capture Set-Cookie from the last response and store it as a reusable session.
+  const copy = async (text, label) => {
+    try { await navigator.clipboard.writeText(text); flash(`${label} 복사됨 ✓`) }
+    catch { setError('클립보드 복사 실패') }
+  }
+
+  // Capture Set-Cookie from a response and store it as a domain-scoped session.
   const saveCookies = async (setCookie) => {
     const cookie = cookiesFromSetCookie(setCookie)
     if (!cookie) return
-    const name = prompt('세션 이름을 입력하세요', `${req.name || req.url} 세션`)
-    if (!name) return
     setError(null)
     try {
-      const id = await saveSession(user.uid, { name, cookie })
+      const id = await saveSession(user.uid, { name: host || '세션', domain: host, cookie })
       await loadSessions()
       patch({ sessionId: id })
-      setSavedMsg('세션 저장됨 ✓'); setTimeout(() => setSavedMsg(''), 2000)
+      flash('세션 저장됨 ✓')
     } catch (e) {
       setError(`세션 저장 실패: ${e.message}`)
     }
   }
 
   const save = async () => {
-    const name = req.name || prompt('저장할 이름을 입력하세요', `${req.method} ${req.url}`)
-    if (!name) return
+    const name = req.name?.trim() || `${req.method} ${host || req.url}`
     try {
       const id = await saveRequest(user.uid, { ...req, name })
       const saved = { ...req, id, name }
       setReq(saved); setActive(saved)
-      setSavedMsg('저장됨 ✓'); setTimeout(() => setSavedMsg(''), 2000)
+      flash('저장됨 ✓')
     } catch (e) {
       setError(e.message)
     }
@@ -79,7 +90,8 @@ export default function Tester() {
           onChange={(e) => patch({ name: e.target.value })}
         />
         <div className="head-actions">
-          {savedMsg && <span className="ok">{savedMsg}</span>}
+          {msg && <span className="ok">{msg}</span>}
+          <button className="btn ghost" onClick={() => copy(toCurl(prepared()), 'cURL')} disabled={!req.url}>cURL 복사</button>
           <button className="btn ghost" onClick={save}>💾 저장</button>
         </div>
       </header>
@@ -101,22 +113,26 @@ export default function Tester() {
       </div>
 
       <div className="key-select">
-        <label>API 키 주입:</label>
+        <label>API 키</label>
         <select value={req.keyId} onChange={(e) => patch({ keyId: e.target.value })}>
           <option value="">없음</option>
           {keys.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
         </select>
-        <label>세션(쿠키):</label>
+        <label>세션</label>
         <select value={req.sessionId} onChange={(e) => patch({ sessionId: e.target.value })}>
-          <option value="">없음</option>
-          {sessions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          <option value="">자동 (도메인 일치)</option>
+          <option value="none">사용 안 함</option>
+          {sessions.map((s) => <option key={s.id} value={s.id}>{s.name}{s.domain ? ` · ${s.domain}` : ''}</option>)}
         </select>
+        {autoApplied && <span className="chip">🍪 {domainSession.name || host} 자동 적용</span>}
       </div>
 
       <div className="tabs">
         {['params', 'headers', 'body'].map((t) => (
           <button key={t} className={tab === t ? 'tab active' : 'tab'} onClick={() => setTab(t)}>
             {t === 'params' ? '쿼리' : t === 'headers' ? '헤더' : '바디'}
+            {t === 'headers' && req.headers?.length ? ` (${req.headers.length})` : ''}
+            {t === 'params' && req.params?.length ? ` (${req.params.length})` : ''}
           </button>
         ))}
       </div>
@@ -130,41 +146,43 @@ export default function Tester() {
             placeholder='{"key": "value"}'
             value={req.body}
             onChange={(e) => patch({ body: e.target.value })}
+            onKeyDown={(e) => (e.metaKey || e.ctrlKey) && e.key === 'Enter' && send()}
           />
         )}
       </div>
 
       {error && <div className="error-box">{error}</div>}
-      {response && <ResponseView res={response} onSaveCookies={saveCookies} />}
+      {response && <ResponseView res={response} onSaveCookies={saveCookies} onCopy={copy} />}
     </div>
   )
 }
 
-function ResponseView({ res, onSaveCookies }) {
+function ResponseView({ res, onSaveCookies, onCopy }) {
   const [tab, setTab] = useState('body')
   const ok = res.status >= 200 && res.status < 300
   const pretty = res.json ? JSON.stringify(res.json, null, 2) : res.body
+  const headersText = Object.entries(res.headers || {}).map(([k, v]) => `${k}: ${v}`).join('\n')
   const hasCookies = res.setCookie && res.setCookie.length > 0
   return (
     <div className="response">
       <div className="resp-meta">
         <span className={ok ? 'status ok' : 'status err'}>{res.status} {res.statusText}</span>
-        <span className="muted">{res.elapsed} ms</span>
-        <span className="muted">{formatSize(res.size)}</span>
+        <span className="muted">⏱ {res.elapsed} ms</span>
+        <span className="muted">⬇ {formatSize(res.size)}</span>
         {hasCookies && (
           <button className="link-btn" onClick={() => onSaveCookies(res.setCookie)}>
             🍪 세션으로 저장 ({res.setCookie.length})
           </button>
         )}
+        <span className="spacer" />
+        <button className="link-btn" onClick={() => onCopy(tab === 'body' ? pretty : headersText, '응답')}>복사</button>
       </div>
       <div className="tabs">
         <button className={tab === 'body' ? 'tab active' : 'tab'} onClick={() => setTab('body')}>본문</button>
         <button className={tab === 'headers' ? 'tab active' : 'tab'} onClick={() => setTab('headers')}>헤더</button>
       </div>
-      {tab === 'body' && <pre className="code">{pretty}</pre>}
-      {tab === 'headers' && (
-        <pre className="code">{Object.entries(res.headers || {}).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>
-      )}
+      {tab === 'body' && <pre className="code">{pretty || '(빈 응답)'}</pre>}
+      {tab === 'headers' && <pre className="code">{headersText}</pre>}
     </div>
   )
 }

@@ -9,22 +9,32 @@ export default function Keys() {
   const [keys, setKeys] = useState(null)
   const [editing, setEditing] = useState(null)
   const [reveal, setReveal] = useState({})
+  const [err, setErr] = useState(null)
 
-  const load = () => listKeys(user.uid).then(setKeys).catch(() => setKeys([]))
+  const load = () => listKeys(user.uid).then(setKeys).catch((e) => { setErr(e.message); setKeys([]) })
   useEffect(() => { load() }, [user.uid])
 
   const submit = async (e) => {
     e.preventDefault()
     if (!editing.name || !editing.value) return
-    await saveKey(user.uid, editing)
-    setEditing(null)
-    load()
+    setErr(null)
+    try {
+      await saveKey(user.uid, editing)
+      setEditing(null)
+      load()
+    } catch (e) {
+      setErr(`저장 실패: ${e.message}`)
+    }
   }
 
   const remove = async (id) => {
     if (!confirm('이 키를 삭제할까요?')) return
-    await deleteKey(user.uid, id)
-    load()
+    try {
+      await deleteKey(user.uid, id)
+      load()
+    } catch (e) {
+      setErr(`삭제 실패: ${e.message}`)
+    }
   }
 
   if (keys === null) return <div className="page-pad muted">불러오는 중…</div>
@@ -36,12 +46,14 @@ export default function Keys() {
         <button className="btn primary" onClick={() => setEditing(emptyKey())}>+ 새 키</button>
       </header>
 
+      {err && <div className="error-box">{err}</div>}
+
       <p className="muted small">
         외부 API 인증정보를 저장해두면 테스터에서 선택해 요청에 자동 주입됩니다.
         값에 <code>{'{{KEY}}'}</code> 토큰을 쓰면 해당 위치에 키 값이 치환됩니다.
       </p>
 
-      {keys.length === 0 && !editing && <p className="muted">저장된 키가 없습니다.</p>}
+      {keys.length === 0 && !editing && <div className="empty">저장된 API 키가 없습니다. “+ 새 키”로 외부 API 인증정보를 추가하세요.</div>}
 
       <ul className="key-list">
         {keys.map((k) => (

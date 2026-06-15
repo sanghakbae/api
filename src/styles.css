@@ -212,7 +212,31 @@ input:focus, select:focus, textarea:focus { outline: none; }
   resize: vertical; line-height: 1.5;
 }
 .cookie-input:focus { border-color: var(--accent); }
+.cookie-help { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sources { display: flex; align-items: center; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+
+/* Shared bits */
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600;
+  padding: 2px 8px; border-radius: 999px; background: var(--panel-3); color: var(--text-2);
+  border: 1px solid var(--border);
+}
+.key-select .chip { background: rgba(45,212,167,.14); color: var(--ok); border-color: transparent; }
+.spacer { margin-left: auto; }
+.empty {
+  margin-top: 8px; padding: 28px 22px; border: 1px dashed var(--border); border-radius: 12px;
+  color: var(--muted); text-align: center; background: var(--panel); font-size: 12.5px;
+}
+.loading { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 24px 4px; }
+.spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.analyze-result { animation: fadeIn .2s ease; }
+.response { animation: fadeIn .2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .source-tag { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px; letter-spacing: .3px; text-transform: uppercase; }
 .ep-actions { display: flex; gap: 4px; flex-shrink: 0; }
 

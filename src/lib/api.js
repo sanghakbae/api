@@ -50,6 +50,24 @@ function buildUrl(url, params) {
   }
 }
 
+// Host (domain) of a URL, used to match domain-scoped sessions. '' if invalid.
+export function hostOf(url) {
+  try { return new URL(url).host } catch { return '' }
+}
+
+// Render a request as a copy-pasteable cURL command.
+export function toCurl(request) {
+  const parts = [`curl -X ${request.method || 'GET'}`]
+  parts.push(`'${buildUrl(request.url, request.params)}'`)
+  for (const h of request.headers || []) {
+    if (h.enabled !== false && h.key) parts.push(`-H '${h.key}: ${(h.value ?? '').replace(/'/g, "'\\''")}'`)
+  }
+  if (!['GET', 'HEAD'].includes(request.method) && request.body) {
+    parts.push(`-d '${request.body.replace(/'/g, "'\\''")}'`)
+  }
+  return parts.join(' \\\n  ')
+}
+
 // Send a request through the Worker proxy. Returns timing + parsed response.
 export async function sendRequest(request) {
   const headers = {}
