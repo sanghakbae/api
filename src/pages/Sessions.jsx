@@ -8,22 +8,32 @@ export default function Sessions() {
   const { user } = useAuth()
   const [sessions, setSessions] = useState(null)
   const [editing, setEditing] = useState(null)
+  const [err, setErr] = useState(null)
 
-  const load = () => listSessions(user.uid).then(setSessions).catch(() => setSessions([]))
+  const load = () => listSessions(user.uid).then(setSessions).catch((e) => { setErr(e.message); setSessions([]) })
   useEffect(() => { load() }, [user.uid])
 
   const submit = async (e) => {
     e.preventDefault()
     if (!editing.name || !editing.cookie) return
-    await saveSession(user.uid, editing)
-    setEditing(null)
-    load()
+    setErr(null)
+    try {
+      await saveSession(user.uid, editing)
+      setEditing(null)
+      load()
+    } catch (e) {
+      setErr(`저장 실패: ${e.message}`)
+    }
   }
 
   const remove = async (id) => {
     if (!confirm('이 세션을 삭제할까요?')) return
-    await deleteSession(user.uid, id)
-    load()
+    try {
+      await deleteSession(user.uid, id)
+      load()
+    } catch (e) {
+      setErr(`삭제 실패: ${e.message}`)
+    }
   }
 
   if (sessions === null) return <div className="page-pad muted">불러오는 중…</div>
@@ -34,6 +44,8 @@ export default function Sessions() {
         <h2>세션 <span className="muted">({sessions.length})</span></h2>
         <button className="btn primary" onClick={() => setEditing(emptySession())}>+ 새 세션</button>
       </header>
+
+      {err && <div className="error-box">{err}</div>}
 
       <p className="muted small">
         쿠키 기반 인증 세션(옵션). 테스터에서 세션을 선택하면 <code>Cookie</code> 헤더로 자동 주입됩니다.

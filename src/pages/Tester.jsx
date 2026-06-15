@@ -45,10 +45,15 @@ export default function Tester() {
     if (!cookie) return
     const name = prompt('세션 이름을 입력하세요', `${req.name || req.url} 세션`)
     if (!name) return
-    const id = await saveSession(user.uid, { name, cookie })
-    await loadSessions()
-    patch({ sessionId: id })
-    setSavedMsg('세션 저장됨 ✓'); setTimeout(() => setSavedMsg(''), 2000)
+    setError(null)
+    try {
+      const id = await saveSession(user.uid, { name, cookie })
+      await loadSessions()
+      patch({ sessionId: id })
+      setSavedMsg('세션 저장됨 ✓'); setTimeout(() => setSavedMsg(''), 2000)
+    } catch (e) {
+      setError(`세션 저장 실패: ${e.message}`)
+    }
   }
 
   const save = async () => {
