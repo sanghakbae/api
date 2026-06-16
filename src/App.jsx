@@ -7,6 +7,7 @@ import SavedList from './pages/SavedList.jsx'
 import Keys from './pages/Keys.jsx'
 import Sessions from './pages/Sessions.jsx'
 import Analyze from './pages/Analyze.jsx'
+import ApiManager from './pages/ApiManager.jsx'
 import Env from './pages/Env.jsx'
 import Guide from './pages/Guide.jsx'
 
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="/" element={<Navigate to="/tester" replace />} />
             <Route path="/tester" element={<Tester key={active.id || 'new'} />} />
             <Route path="/saved" element={<SavedList />} />
+            <Route path="/apis" element={<ApiManager />} />
             <Route path="/keys" element={<Keys />} />
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/env" element={<Env />} />
@@ -65,6 +67,7 @@ function Sidebar() {
       <div className="brand">{'{ }'} API Manager</div>
       <nav>
         <NavLink to="/tester" className={link}>🧪 테스터</NavLink>
+        <NavLink to="/apis" className={link}>🗂️ API 관리</NavLink>
         <NavLink to="/saved" className={link}>📁 저장된 API</NavLink>
         <NavLink to="/analyze" className={link}>🔍 URL 분석</NavLink>
         <NavLink to="/keys" className={link}>🔑 API 키</NavLink>

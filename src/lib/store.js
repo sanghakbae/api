@@ -20,6 +20,7 @@ const reqCol = (uid) => collection(db, 'users', uid, 'requests')
 const keyCol = (uid) => collection(db, 'users', uid, 'apikeys')
 const sessCol = (uid) => collection(db, 'users', uid, 'sessions')
 const histCol = (uid) => collection(db, 'users', uid, 'history')
+const apiCol = (uid) => collection(db, 'users', uid, 'apis')
 
 // ---- Saved requests ----
 export async function listRequests(uid) {
@@ -40,6 +41,27 @@ export async function saveRequest(uid, data) {
 
 export async function deleteRequest(uid, id) {
   await deleteDoc(doc(reqCol(uid), id))
+}
+
+// ---- Registered APIs (documented endpoints, callable) ----
+export async function listApis(uid) {
+  const snap = await getDocs(query(apiCol(uid), orderBy('updatedAt', 'desc')))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function saveApi(uid, data) {
+  const payload = { ...data, updatedAt: serverTimestamp() }
+  if (data.id) {
+    const { id, ...rest } = payload
+    await setDoc(doc(apiCol(uid), data.id), rest, { merge: true })
+    return data.id
+  }
+  const ref = await addDoc(apiCol(uid), { ...payload, createdAt: serverTimestamp() })
+  return ref.id
+}
+
+export async function deleteApi(uid, id) {
+  await deleteDoc(doc(apiCol(uid), id))
 }
 
 // ---- API key vault ----
