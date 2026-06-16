@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useWorkbench } from '../App.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import KeyValueEditor from '../components/KeyValueEditor.jsx'
-import { sendRequest, applyKey, applySession, cookiesFromSetCookie, hostOf, toCurl } from '../lib/api.js'
+import { sendRequest, applyKey, applySession, cookiesFromSetCookie, hostOf, toCurl, parseCurl } from '../lib/api.js'
 import { saveRequest, listKeys, listSessions, saveSession } from '../lib/store.js'
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
@@ -18,6 +18,7 @@ export default function Tester() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [msg, setMsg] = useState('')
+  const [importText, setImportText] = useState(null) // null = closed
 
   const loadSessions = () => listSessions(user.uid).then(setSessions).catch(() => {})
   useEffect(() => { listKeys(user.uid).then(setKeys).catch(() => {}); loadSessions() }, [user.uid])
@@ -68,6 +69,14 @@ export default function Tester() {
     }
   }
 
+  const doImport = () => {
+    const parsed = parseCurl(importText || '')
+    if (!parsed.url) { setError('cURL에서 URL을 찾지 못했습니다. 형식을 확인하세요.'); return }
+    setReq((r) => ({ ...r, method: parsed.method, url: parsed.url, headers: parsed.headers, body: parsed.body, params: parsed.params }))
+    setImportText(null); setResponse(null); setError(null)
+    flash('cURL 가져옴 ✓')
+  }
+
   const save = async () => {
     const name = req.name?.trim() || `${req.method} ${host || req.url}`
     try {
@@ -91,10 +100,32 @@ export default function Tester() {
         />
         <div className="head-actions">
           {msg && <span className="ok">{msg}</span>}
+          <button className="btn ghost" onClick={() => setImportText('')}>📋 cURL 가져오기</button>
           <button className="btn ghost" onClick={() => copy(toCurl(prepared()), 'cURL')} disabled={!req.url}>cURL 복사</button>
           <button className="btn ghost" onClick={save}>💾 저장</button>
         </div>
       </header>
+
+      {importText !== null && (
+        <div className="import-box">
+          <div className="muted small">
+            브라우저 F12 → <b>Network</b> 탭에서 보고 싶은 요청을 우클릭 →
+            <b>Copy → Copy as cURL</b> 한 뒤 여기에 붙여넣으세요.
+          </div>
+          <textarea
+            className="cookie-input"
+            rows={4}
+            autoFocus
+            placeholder="curl 'https://...' -H '...' --data-raw '...'"
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+          />
+          <div className="form-actions">
+            <button className="btn ghost" onClick={() => setImportText(null)}>취소</button>
+            <button className="btn primary" onClick={doImport} disabled={!importText.trim()}>가져오기</button>
+          </div>
+        </div>
+      )}
 
       <div className="url-bar">
         <select className="method" value={req.method} onChange={(e) => patch({ method: e.target.value })}>

@@ -67,6 +67,43 @@ export function hostOf(url) {
   try { return new URL(url).host } catch { return '' }
 }
 
+// Parse a cURL command (e.g. copied from browser DevTools → Network → Copy as cURL)
+// into our request shape. Handles -X, -H/--header, -d/--data*, -b/--cookie, -u.
+export function parseCurl(text) {
+  const clean = (text || '').replace(/\\\r?\n/g, ' ').trim()
+  const tokens = []
+  const re = /"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+)/g
+  let m
+  while ((m = re.exec(clean)) !== null) {
+    if (m[1] !== undefined) tokens.push(m[1].replace(/\\(.)/g, '$1'))
+    else if (m[2] !== undefined) tokens.push(m[2])
+    else tokens.push(m[3])
+  }
+  const out = { method: '', url: '', headers: [], body: '', params: [] }
+  const valueFlags = new Set(['-A', '--user-agent', '-e', '--referer'])
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]
+    if (t === 'curl') continue
+    else if (t === '-X' || t === '--request') out.method = (tokens[++i] || '').toUpperCase()
+    else if (t === '-H' || t === '--header') {
+      const h = tokens[++i] || ''
+      const idx = h.indexOf(':')
+      if (idx > 0) out.headers.push({ key: h.slice(0, idx).trim(), value: h.slice(idx + 1).trim(), enabled: true })
+    } else if (t === '-b' || t === '--cookie') {
+      out.headers.push({ key: 'Cookie', value: tokens[++i] || '', enabled: true })
+    } else if (['-d', '--data', '--data-raw', '--data-binary', '--data-ascii', '--data-urlencode'].includes(t)) {
+      out.body = tokens[++i] || ''
+    } else if (t === '-u' || t === '--user') {
+      try { out.headers.push({ key: 'Authorization', value: 'Basic ' + btoa(tokens[++i] || ''), enabled: true }) } catch { /* ignore */ }
+    } else if (t === '--url') out.url = tokens[++i] || ''
+    else if (valueFlags.has(t)) i++ // consume the value of a flag we don't model
+    else if (t.startsWith('-')) { /* boolean flag like --compressed: skip */ }
+    else if (!out.url) out.url = t
+  }
+  if (!out.method) out.method = out.body ? 'POST' : 'GET'
+  return out
+}
+
 // Render a request as a copy-pasteable cURL command.
 export function toCurl(request) {
   const parts = [`curl -X ${request.method || 'GET'}`]
