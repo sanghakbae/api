@@ -73,19 +73,31 @@ export async function handleAnalyze(request) {
 
   // Extract API-looking URLs from a blob of HTML/JS source text into `found`.
   const PATTERNS = [
-    /["'`](https?:\/\/[^"'`\s]*\/(?:api|v\d|rest|graphql)\/[^"'`\s]*)["'`]/gi,
-    /["'`](\/(?:api|v\d|rest)\/[a-zA-Z0-9_\-/{}.:]+)["'`]/g,
+    /["'`](https?:\/\/[^"'`\s]*\/(?:api|v\d|rest|graphql|svc|service)\/[^"'`\s]*)["'`]/gi,
+    /["'`](\/(?:api|v\d|rest|svc|service)\/[a-zA-Z0-9_\-/{}.:]+)["'`]/g,
+    /["'`]([a-zA-Z0-9_\-/{}.:]*\.(?:do|json|jsp|action))(?:\?[^"'`]*)?["'`]/g, // .do/.json/.jsp/.action
     /fetch\(\s*["'`]([^"'`]+)["'`]/g,
     /axios(?:\.[a-z]+)?\(\s*["'`]([^"'`]+)["'`]/g,
+    /\.(?:get|post|put|patch|delete)\(\s*["'`]([^"'`]+)["'`]/gi,             // $.post(...), http.get(...)
+    /\bopen\(\s*["'`][A-Z]+["'`]\s*,\s*["'`]([^"'`]+)["'`]/g,                // XMLHttpRequest.open(method, url)
+    /\burl\s*:\s*["'`]([^"'`]+)["'`]/g,                                       // jQuery ajax { url: '...' }
   ]
+  const norm = (raw) => {
+    let path = raw
+    if (path.startsWith('//')) path = 'https:' + path
+    else if (path.startsWith('/')) path = origin + path
+    else if (!/^https?:\/\//.test(path)) {
+      try { path = new URL(path, url).toString() } catch { return null }
+    }
+    if (!/^https?:\/\//.test(path) || path.length > 300) return null
+    return path
+  }
   const scanText = (text, found) => {
     for (const re of PATTERNS) {
       let m
       while ((m = re.exec(text)) !== null) {
-        let path = m[1]
-        if (path.startsWith('//')) path = 'https:' + path
-        else if (path.startsWith('/')) path = origin + path
-        if (/^https?:\/\//.test(path) && path.length < 300) found.add(path)
+        const p = norm(m[1])
+        if (p) found.add(p)
       }
     }
   }
@@ -143,12 +155,35 @@ export async function handleAnalyze(request) {
   //    API calls there) and scan everything for endpoint patterns.
   const htmlPhase = async () => {
     const found = new Set()
+    const forms = []
+    const links = new Set()
     let scannedJs = 0
     try {
       const r = await fetchT(url)
       rootReachable = true
       const html = await r.text()
       scanText(html, found)
+
+      // <form action method> — the real endpoints of server-rendered apps.
+      let fm
+      const formRe = /<form\b([^>]*)>/gi
+      while ((fm = formRe.exec(html)) !== null) {
+        const attrs = fm[1]
+        const action = (attrs.match(/action\s*=\s*["']([^"']*)["']/i) || [])[1]
+        const method = (attrs.match(/method\s*=\s*["']([^"']*)["']/i) || [])[1]
+        const u = norm(action || url)
+        if (u) forms.push({ method: (method || 'GET').toUpperCase(), url: u })
+      }
+
+      // Internal <a href> page links (capped) — useful targets on server-rendered sites.
+      let am
+      const aRe = /<a\b[^>]+href\s*=\s*["']([^"']+)["']/gi
+      while ((am = aRe.exec(html)) !== null && links.size < 40) {
+        const h = am[1]
+        if (/^(#|javascript:|mailto:|tel:)/i.test(h)) continue
+        const u = norm(h)
+        if (u && new URL(u).origin === origin) links.add(u)
+      }
 
       // Collect linked scripts / module preloads, resolve to absolute, scan up to 12.
       const refs = new Set()
@@ -167,9 +202,11 @@ export async function handleAnalyze(request) {
       }))
     } catch { /* ignore */ }
 
-    if (found.size) {
+    if (found.size || forms.length || links.size) {
       sources.push({ type: 'static', url, scannedJs })
-      for (const u of found) endpoints.push({ method: 'GET', url: u, summary: '', source: 'static-scan' })
+      for (const u of found) endpoints.push({ method: 'GET', url: u, summary: '', source: 'code' })
+      for (const f of forms) endpoints.push({ method: f.method, url: f.url, summary: '폼 제출', source: 'form' })
+      for (const u of links) endpoints.push({ method: 'GET', url: u, summary: '페이지 링크', source: 'link' })
     }
   }
 
