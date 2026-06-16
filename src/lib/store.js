@@ -8,8 +8,10 @@ import {
   setDoc,
   getDocs,
   deleteDoc,
+  writeBatch,
   query,
   orderBy,
+  limit,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -17,6 +19,7 @@ import { db } from '../firebase'
 const reqCol = (uid) => collection(db, 'users', uid, 'requests')
 const keyCol = (uid) => collection(db, 'users', uid, 'apikeys')
 const sessCol = (uid) => collection(db, 'users', uid, 'sessions')
+const histCol = (uid) => collection(db, 'users', uid, 'history')
 
 // ---- Saved requests ----
 export async function listRequests(uid) {
@@ -77,4 +80,38 @@ export async function saveSession(uid, data) {
 
 export async function deleteSession(uid, id) {
   await deleteDoc(doc(sessCol(uid), id))
+}
+
+// ---- Request history (persisted in DB, viewable anytime/anywhere) ----
+export async function addHistory(uid, entry) {
+  await addDoc(histCol(uid), {
+    method: entry.method || 'GET',
+    url: entry.url || '',
+    headers: entry.headers || [],
+    params: entry.params || [],
+    body: entry.body || '',
+    status: entry.status ?? null,
+    elapsed: entry.elapsed ?? null,
+    createdAt: serverTimestamp(),
+  })
+}
+
+export async function listHistory(uid, max = 300) {
+  const snap = await getDocs(query(histCol(uid), orderBy('createdAt', 'desc'), limit(max)))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function deleteHistory(uid, id) {
+  await deleteDoc(doc(histCol(uid), id))
+}
+
+export async function clearHistory(uid) {
+  const snap = await getDocs(histCol(uid))
+  // Firestore batches cap at 500 ops; chunk to be safe.
+  const docs = snap.docs
+  for (let i = 0; i < docs.length; i += 450) {
+    const batch = writeBatch(db)
+    docs.slice(i, i + 450).forEach((d) => batch.delete(d.ref))
+    await batch.commit()
+  }
 }

@@ -7,6 +7,8 @@ import SavedList from './pages/SavedList.jsx'
 import Keys from './pages/Keys.jsx'
 import Sessions from './pages/Sessions.jsx'
 import Analyze from './pages/Analyze.jsx'
+import Env from './pages/Env.jsx'
+import Guide from './pages/Guide.jsx'
 
 // Shared "active request" so Saved/Analyze can load a request into the Tester.
 const WorkbenchContext = createContext(null)
@@ -44,6 +46,8 @@ export default function App() {
             <Route path="/saved" element={<SavedList />} />
             <Route path="/keys" element={<Keys />} />
             <Route path="/sessions" element={<Sessions />} />
+            <Route path="/env" element={<Env />} />
+            <Route path="/guide" element={<Guide />} />
             <Route path="/analyze" element={<Analyze />} />
             <Route path="*" element={<Navigate to="/tester" replace />} />
           </Routes>
@@ -65,6 +69,8 @@ function Sidebar() {
         <NavLink to="/analyze" className={link}>🔍 URL 분석</NavLink>
         <NavLink to="/keys" className={link}>🔑 API 키</NavLink>
         <NavLink to="/sessions" className={link}>🍪 세션</NavLink>
+        <NavLink to="/env" className={link}>🧩 환경변수</NavLink>
+        <NavLink to="/guide" className={link}>📖 사용법</NavLink>
       </nav>
       <div className="user">
         <img src={user.photoURL} alt="" referrerPolicy="no-referrer" />

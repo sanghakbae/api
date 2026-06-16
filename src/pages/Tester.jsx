@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { useWorkbench } from '../App.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import KeyValueEditor from '../components/KeyValueEditor.jsx'
+import JsonTree from '../components/JsonTree.jsx'
 import { sendRequest, applyKey, applySession, cookiesFromSetCookie, hostOf, toCurl, parseCurl, getWorkerBase, setWorkerBase, LOCAL_BASE } from '../lib/api.js'
-import { saveRequest, listKeys, listSessions, saveSession } from '../lib/store.js'
+import { saveRequest, listKeys, listSessions, saveSession, addHistory } from '../lib/store.js'
+import { applyEnv } from '../lib/env.js'
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 
@@ -37,13 +39,18 @@ export default function Tester() {
         : domainSession
   const autoApplied = !req.sessionId && domainSession
 
-  const prepared = () => applySession(applyKey(req, keys.find((k) => k.id === req.keyId)), sessionObj)
+  // Build the outgoing request: inject API key, session cookie, then substitute {{env}}.
+  const prepared = () => applyEnv(applySession(applyKey(req, keys.find((k) => k.id === req.keyId)), sessionObj))
 
   const send = async () => {
     if (!req.url) { setError('URL을 입력하세요'); return }
     setSending(true); setError(null); setResponse(null)
+    const out = prepared()
     try {
-      setResponse(await sendRequest(prepared()))
+      const res = await sendRequest(out)
+      setResponse(res)
+      // Persist to DB history (fire-and-forget) so it's viewable anytime/anywhere.
+      addHistory(user.uid, { ...out, status: res.status, elapsed: res.elapsed }).catch(() => {})
     } catch (e) {
       setError(e.message)
     } finally {
@@ -201,10 +208,19 @@ export default function Tester() {
 
 function ResponseView({ res, onSaveCookies, onCopy }) {
   const [tab, setTab] = useState('body')
+  const [view, setView] = useState('tree') // tree | raw
+  const [find, setFind] = useState('')
   const ok = res.status >= 200 && res.status < 300
   const pretty = res.json ? JSON.stringify(res.json, null, 2) : res.body
   const headersText = Object.entries(res.headers || {}).map(([k, v]) => `${k}: ${v}`).join('\n')
   const hasCookies = res.setCookie && res.setCookie.length > 0
+
+  // Simple find: show only matching lines in raw view.
+  const rawText = tab === 'headers' ? headersText : pretty
+  const shown = find
+    ? (rawText || '').split('\n').filter((l) => l.toLowerCase().includes(find.toLowerCase())).join('\n')
+    : rawText
+
   return (
     <div className="response">
       <div className="resp-meta">
@@ -222,9 +238,18 @@ function ResponseView({ res, onSaveCookies, onCopy }) {
       <div className="tabs">
         <button className={tab === 'body' ? 'tab active' : 'tab'} onClick={() => setTab('body')}>본문</button>
         <button className={tab === 'headers' ? 'tab active' : 'tab'} onClick={() => setTab('headers')}>헤더</button>
+        <span className="spacer" />
+        {tab === 'body' && res.json && (
+          <div className="seg sm">
+            <button className={view === 'tree' ? 'seg-btn on' : 'seg-btn'} onClick={() => setView('tree')}>트리</button>
+            <button className={view === 'raw' ? 'seg-btn on' : 'seg-btn'} onClick={() => setView('raw')}>원문</button>
+          </div>
+        )}
+        <input className="resp-find" placeholder="🔍 찾기" value={find} onChange={(e) => setFind(e.target.value)} />
       </div>
-      {tab === 'body' && <pre className="code">{pretty || '(빈 응답)'}</pre>}
-      {tab === 'headers' && <pre className="code">{headersText}</pre>}
+      {tab === 'body' && res.json && view === 'tree' && !find
+        ? <div className="code jt"><JsonTree data={res.json} /></div>
+        : <pre className="code">{shown || '(빈 응답)'}</pre>}
     </div>
   )
 }

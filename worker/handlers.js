@@ -13,9 +13,22 @@ export const CORS = {
 export const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...CORS } })
 
-export async function handleProxy(request) {
+// SSRF guard for the CLOUD worker: refuse private/loopback/metadata targets.
+// (The local worker passes localMode=true and skips this so intranet sites work.)
+export function isBlockedTarget(target) {
+  try {
+    const h = new URL(target).hostname.toLowerCase()
+    if (h === 'metadata.google.internal') return true
+    if (/^(localhost|0\.0\.0\.0|::1|127\.|10\.|192\.168\.|169\.254\.)/.test(h)) return true
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true
+    return false
+  } catch { return true }
+}
+
+export async function handleProxy(request, { localMode = false } = {}) {
   const { method = 'GET', url, headers = {}, body } = await request.json()
   if (!url) return json({ error: 'url required' }, 400)
+  if (!localMode && isBlockedTarget(url)) return json({ error: '사설/내부 주소는 클라우드에서 차단됩니다. 사내망 주소는 “로컬” 모드로 보내세요.' }, 403)
   const started = Date.now()
   let upstream
   try {
@@ -53,9 +66,10 @@ export async function handleProxy(request) {
   })
 }
 
-export async function handleAnalyze(request) {
+export async function handleAnalyze(request, { localMode = false } = {}) {
   const { url, cookie } = await request.json()
   if (!url) return json({ error: 'url required' }, 400)
+  if (!localMode && isBlockedTarget(url)) return json({ error: '사설/내부 주소는 클라우드에서 차단됩니다. 사내망 주소는 “로컬” 모드로 분석하세요.', reachable: false, sources: [], count: 0, endpoints: [] }, 403)
   const origin = new URL(url).origin
   const endpoints = []
   const sources = []

@@ -246,6 +246,41 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .source-tag { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 6px; letter-spacing: .3px; text-transform: uppercase; }
 .ep-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
+/* JSON tree */
+.code.jt { white-space: normal; line-height: 1.55; }
+.jt-row { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; }
+.jt-toggle { cursor: pointer; }
+.jt-toggle:hover { background: rgba(255,255,255,.03); }
+.jt-caret { color: var(--muted); display: inline-block; width: 14px; }
+.jt-key { color: #a5a3ff; }
+.jt-bracket { color: var(--muted); }
+.jt-muted { color: var(--muted); }
+.jt-string { color: #2dd4a7; }
+.jt-number { color: #f5b454; }
+.jt-boolean { color: #6d6af6; }
+.jt-null { color: var(--muted); }
+
+/* small segmented + response find */
+.seg.sm .seg-btn { padding: 3px 9px; font-size: 11px; }
+.resp-find { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 4px 8px; font-size: 11.5px; width: 130px; margin-left: 8px; }
+.resp-find:focus { border-color: var(--accent); outline: none; }
+
+/* folders in saved list */
+.folder-group { margin-bottom: 16px; }
+.folder-title { font-weight: 700; font-size: 12.5px; color: var(--text-2); margin: 6px 0 8px; }
+
+/* Guide page */
+.guide { max-width: 860px; }
+.g-card { background: var(--panel); border: 1px solid var(--border-soft); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+.g-card h3 { margin: 0 0 10px; font-size: 15px; }
+.g-card p { margin: 8px 0; color: var(--text-2); line-height: 1.7; }
+.g-list { margin: 6px 0; padding-left: 18px; line-height: 1.9; color: var(--text-2); }
+.g-steps { margin: 6px 0; padding-left: 22px; line-height: 1.9; color: var(--text-2); }
+.g-steps li { margin-bottom: 6px; }
+.g-tip { background: rgba(45,212,167,.1); border-left: 3px solid var(--ok); padding: 8px 12px; border-radius: 6px; }
+.g-warn { background: rgba(245,180,84,.1); border-left: 3px solid var(--warn); padding: 8px 12px; border-radius: 6px; }
+.guide code { background: var(--panel-3); color: var(--accent-2); }
+
 /* ============================================================
    Mobile (iPhone 등): 사이드바 → 하단 탭 바
    ============================================================ */
@@ -260,8 +295,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
     background: rgba(18, 21, 28, .96); backdrop-filter: blur(10px);
   }
   .sidebar .brand { display: none; }
-  .sidebar nav { flex-direction: row; justify-content: space-around; gap: 0; flex: 1; }
-  .nav-link { flex-direction: column; gap: 2px; flex: 1; text-align: center; padding: 6px 2px; font-size: 9.5px; border-radius: 8px; }
+  .sidebar nav { flex-direction: row; justify-content: flex-start; gap: 0; flex: 1; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .nav-link { flex-direction: column; gap: 2px; flex: 0 0 auto; min-width: 58px; text-align: center; padding: 6px 4px; font-size: 9.5px; border-radius: 8px; }
   .nav-link.active { box-shadow: none; }
   .sidebar .user { border-top: none; margin: 0; padding: 4px 6px; }
   .sidebar .user-meta { display: none; }
