@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useWorkbench } from '../App.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import KeyValueEditor from '../components/KeyValueEditor.jsx'
-import { sendRequest, applyKey, applySession, cookiesFromSetCookie, hostOf, toCurl, parseCurl } from '../lib/api.js'
+import { sendRequest, applyKey, applySession, cookiesFromSetCookie, hostOf, toCurl, parseCurl, getWorkerBase, setWorkerBase, LOCAL_BASE } from '../lib/api.js'
 import { saveRequest, listKeys, listSessions, saveSession } from '../lib/store.js'
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
@@ -19,6 +19,8 @@ export default function Tester() {
   const [error, setError] = useState(null)
   const [msg, setMsg] = useState('')
   const [importText, setImportText] = useState(null) // null = closed
+  const [local, setLocal] = useState(getWorkerBase() === LOCAL_BASE)
+  const switchLoc = (useLocal) => { setWorkerBase(useLocal ? LOCAL_BASE : ''); setLocal(useLocal) }
 
   const loadSessions = () => listSessions(user.uid).then(setSessions).catch(() => {})
   useEffect(() => { listKeys(user.uid).then(setKeys).catch(() => {}); loadSessions() }, [user.uid])
@@ -141,6 +143,15 @@ export default function Tester() {
         <button className="btn primary" onClick={send} disabled={sending}>
           {sending ? '전송 중…' : '전송'}
         </button>
+      </div>
+
+      <div className="analyzer-loc">
+        <span className="muted small">요청 위치:</span>
+        <div className="seg">
+          <button className={!local ? 'seg-btn on' : 'seg-btn'} onClick={() => switchLoc(false)}>☁️ 클라우드</button>
+          <button className={local ? 'seg-btn on' : 'seg-btn'} onClick={() => switchLoc(true)}>💻 로컬(내 PC)</button>
+        </div>
+        {local && <span className="muted small">사내망/로그인 사이트는 로컬로 (이 PC에서 npm run worker:dev 실행, :8799)</span>}
       </div>
 
       <div className="key-select">
