@@ -1,7 +1,50 @@
+import Mermaid from '../components/Mermaid.jsx'
+
+const ARCH = `flowchart TD
+  U["🧑 사용자 (PC / 모바일)"]
+  subgraph FE["프론트엔드 · GitHub Pages (api.sanghak.kr)"]
+    T["🧪 테스터"]
+    A["🔍 URL 분석"]
+    L["📁 저장 · 🕘 최근"]
+    KS["🔑 키 · 🍪 세션 · 🧩 환경변수"]
+  end
+  subgraph FB["Firebase"]
+    AU["Google 로그인"]
+    DB["Firestore<br/>요청 · 키 · 세션 · 히스토리"]
+  end
+  subgraph CF["Cloudflare Worker (프록시 / 분석)"]
+    direction LR
+    CL["☁️ 클라우드<br/>(공개 사이트)"]
+    LO["💻 로컬 내 PC<br/>(사내망 사이트)"]
+  end
+  EXT["🌐 외부 / 사내 API 서버"]
+
+  U --> FE
+  FE -->|로그인| AU
+  T --> DB
+  A --> DB
+  L --> DB
+  KS --> DB
+  T -->|요청 전송| CF
+  A -->|사이트 분석| CF
+  CF -->|대신 호출| EXT
+  EXT -->|응답| CF
+  CF -->|결과| FE`
+
 export default function Guide() {
   return (
     <div className="page-pad guide">
       <header className="page-head"><h2>📖 사용법 (처음이어도 괜찮아요)</h2></header>
+
+      <section className="g-card">
+        <h3>🗺️ 서비스 구조 한눈에 보기</h3>
+        <p>이 도구가 어떻게 동작하는지 그림으로 보면 이래요:</p>
+        <Mermaid chart={ARCH} id="arch" />
+        <p className="g-tip">
+          핵심: 브라우저는 다른 사이트를 직접 못 부르기 때문에(보안), 중간의 <b>Worker(프록시)</b>가 대신 요청을 보내고 결과를 가져옵니다.
+          공개 사이트는 <b>☁️ 클라우드</b>, 사내망 사이트는 <b>💻 로컬(내 PC)</b> 로 보냅니다.
+        </p>
+      </section>
 
       <section className="g-card">
         <h3>0. 이게 뭐 하는 곳이야?</h3>

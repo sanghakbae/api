@@ -272,6 +272,12 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 /* Guide page */
 .guide { width: 100%; }
+/* env editor: page is full width, but inputs stay a readable width (not stretched) */
+.env-kv { max-width: 820px; }
+
+/* Mermaid diagram */
+.mermaid-box { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; overflow-x: auto; }
+.mermaid-box svg { max-width: 100%; height: auto; }
 .g-card { background: var(--panel); border: 1px solid var(--border-soft); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
 .g-card h3 { margin: 0 0 10px; font-size: 15px; }
 .g-card p { margin: 8px 0; color: var(--text-2); line-height: 1.7; }

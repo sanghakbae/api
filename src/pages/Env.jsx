@@ -34,7 +34,7 @@ export default function Env() {
         <br />예: 이름 <code>baseUrl</code> = <code>https://api.example.com</code> → 주소칸에 <code>{'{{baseUrl}}/users'}</code> 라고 쓰면 전송할 때 자동으로 바뀝니다.
       </p>
 
-      <div className="kv">
+      <div className="kv env-kv">
         {rows.map((r, i) => (
           <div className="kv-row" key={i}>
             <input className="kv-input" placeholder="이름 (예: baseUrl)" value={r.key} onChange={(e) => update(i, { key: e.target.value })} />
