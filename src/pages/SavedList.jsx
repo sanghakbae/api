@@ -101,21 +101,32 @@ export default function SavedList() {
         <div className="empty">최근 보낸 요청이 없습니다. 테스터에서 요청을 전송하면 DB에 자동 기록되어 언제든 다시 볼 수 있습니다.</div>
       ) : (
         <ul className="saved-list">
-          {history.map((item) => (
-            <li key={item.id} className="saved-item" onClick={() => open(item)}>
-              <span className={`method-badge m-${(item.method || 'GET').toLowerCase()}`}>{item.method}</span>
-              <div className="saved-meta">
-                <div className="saved-url">{item.url}</div>
-                <div className="muted small">
-                  {item.status ? `상태 ${item.status}` : ''}{item.elapsed != null ? ` · ${item.elapsed}ms` : ''}
-                  {item.createdAt?.toDate ? ` · ${item.createdAt.toDate().toLocaleString('ko-KR')}` : ''}
+          {history.map((item) => {
+            const isAnalyze = item.type === 'analyze'
+            // For request history, load only the request fields (drop history id/meta).
+            const openItem = () => isAnalyze
+              ? navigate('/analyze', { state: { url: item.url } })
+              : (setActive({ ...blankRequest(), method: item.method, url: item.url, headers: item.headers || [], params: item.params || [], body: item.body || '' }), navigate('/tester'))
+            return (
+              <li key={item.id} className="saved-item" onClick={openItem}>
+                <span className={`method-badge ${isAnalyze ? 'm-analyze' : `m-${(item.method || 'GET').toLowerCase()}`}`}>
+                  {isAnalyze ? '분석' : item.method}
+                </span>
+                <div className="saved-meta">
+                  <div className="saved-url">{item.url}</div>
+                  <div className="muted small">
+                    {isAnalyze
+                      ? `${item.count ?? 0}개 발견`
+                      : `${item.status ? `상태 ${item.status}` : ''}${item.elapsed != null ? ` · ${item.elapsed}ms` : ''}`}
+                    {item.createdAt?.toDate ? ` · ${item.createdAt.toDate().toLocaleString('ko-KR')}` : ''}
+                  </div>
                 </div>
-              </div>
-              <div className="ep-actions">
-                <button className="icon-btn" onClick={async (e) => { e.stopPropagation(); await deleteHistory(user.uid, item.id); loadHistory() }} title="삭제">🗑</button>
-              </div>
-            </li>
-          ))}
+                <div className="ep-actions">
+                  <button className="icon-btn" onClick={async (e) => { e.stopPropagation(); await deleteHistory(user.uid, item.id); loadHistory() }} title="삭제">🗑</button>
+                </div>
+              </li>
+            )
+          })}
         </ul>
       ))}
     </div>

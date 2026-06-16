@@ -82,9 +82,11 @@ export async function deleteSession(uid, id) {
   await deleteDoc(doc(sessCol(uid), id))
 }
 
-// ---- Request history (persisted in DB, viewable anytime/anywhere) ----
+// ---- Action history (persisted in DB, viewable anytime/anywhere) ----
+// type: 'request' (전송) | 'analyze' (URL 분석)
 export async function addHistory(uid, entry) {
   await addDoc(histCol(uid), {
+    type: entry.type || 'request',
     method: entry.method || 'GET',
     url: entry.url || '',
     headers: entry.headers || [],
@@ -92,6 +94,7 @@ export async function addHistory(uid, entry) {
     body: entry.body || '',
     status: entry.status ?? null,
     elapsed: entry.elapsed ?? null,
+    count: entry.count ?? null,
     createdAt: serverTimestamp(),
   })
 }

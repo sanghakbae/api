@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useWorkbench, blankRequest } from '../App.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { analyzeSite, hostOf, getWorkerBase, setWorkerBase, LOCAL_BASE } from '../lib/api.js'
-import { saveRequest, saveSession } from '../lib/store.js'
+import { saveRequest, saveSession, addHistory } from '../lib/store.js'
 
 export default function Analyze() {
   const { user } = useAuth()
   const { setActive } = useWorkbench()
   const navigate = useNavigate()
-  const [url, setUrl] = useState('')
+  const location = useLocation()
+  const [url, setUrl] = useState(location.state?.url || '')
   const [cookie, setCookie] = useState('')
   const [showCookie, setShowCookie] = useState(false)
   const [result, setResult] = useState(null)
@@ -29,7 +30,10 @@ export default function Analyze() {
     if (!url) return
     setLoading(true); setError(null); setResult(null)
     try {
-      setResult(await analyzeSite(url, cookie))
+      const res = await analyzeSite(url, cookie)
+      setResult(res)
+      // Log this analysis action to DB history (viewable anytime).
+      addHistory(user.uid, { type: 'analyze', url, count: res.count, status: res.reachable === false ? 0 : 200 }).catch(() => {})
     } catch (e) {
       setError(e.message)
     } finally {
