@@ -9,7 +9,7 @@ export default function Mermaid({ chart, id = 'mmd' }) {
   useEffect(() => {
     let cancelled = false
     import('mermaid').then(async ({ default: mermaid }) => {
-      mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose', fontFamily: 'inherit' })
+      mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose', fontFamily: 'inherit' })
       try {
         const { svg } = await mermaid.render(`${id}-svg`, chart)
         if (!cancelled && ref.current) ref.current.innerHTML = svg
