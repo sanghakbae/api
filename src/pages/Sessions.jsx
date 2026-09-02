@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useWorkbench, blankRequest } from '../App.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { listSessions, saveSession, deleteSession } from '../lib/store.js'
 
@@ -8,16 +7,14 @@ const emptySession = () => ({ name: '', domain: '', cookie: '' })
 
 export default function Sessions() {
   const { user } = useAuth()
-  const { setActive } = useWorkbench()
   const navigate = useNavigate()
   const [sessions, setSessions] = useState(null)
   const [editing, setEditing] = useState(null)
   const [err, setErr] = useState(null)
 
-  // Click a session → open the Tester with it applied and the URL prefilled.
-  const useInTester = (s) => {
-    setActive({ ...blankRequest(), url: s.domain ? `https://${s.domain}/` : '', sessionId: s.id })
-    navigate('/tester')
+  // Click a session → open URL 분석 for that domain (the saved session auto-applies).
+  const useInAnalyze = (s) => {
+    navigate('/analyze', { state: { url: s.domain ? `https://${s.domain}/` : '' } })
   }
 
   const load = () => listSessions(user.uid).then(setSessions).catch((e) => { setErr(e.message); setSessions([]) })
@@ -66,16 +63,16 @@ export default function Sessions() {
         <div className="empty">아직 저장된 세션이 없습니다. 로그인이 필요한 사이트를 분석/테스트할 때 쿠키를 넣으면 여기에 쌓입니다.</div>
       )}
 
-      {sessions.length > 0 && <p className="muted small">세션을 클릭하면 그 세션이 적용된 채 테스터가 열립니다.</p>}
+      {sessions.length > 0 && <p className="muted small">세션을 클릭하면 그 도메인의 <b>URL 분석</b>이 (세션 자동 적용된 채) 열립니다.</p>}
       <ul className="key-list">
         {sessions.map((s) => (
-          <li key={s.id} className="key-item clickable" onClick={() => useInTester(s)} title="이 세션으로 테스터 열기">
+          <li key={s.id} className="key-item clickable" onClick={() => useInAnalyze(s)} title="이 세션으로 URL 분석 열기">
             <div style={{ minWidth: 0 }}>
               <div className="key-name">{s.name} {s.domain && <span className="chip">{s.domain}</span>}</div>
               <div className="key-detail muted small" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.cookie}</div>
             </div>
             <div className="key-actions">
-              <button className="btn ghost" onClick={(e) => { e.stopPropagation(); useInTester(s) }}>🧪 사용</button>
+              <button className="btn ghost" onClick={(e) => { e.stopPropagation(); useInAnalyze(s) }}>🔍 분석</button>
               <button className="link-btn" onClick={(e) => { e.stopPropagation(); setEditing(s) }}>편집</button>
               <button className="link-btn danger" onClick={(e) => { e.stopPropagation(); remove(s.id) }}>삭제</button>
             </div>

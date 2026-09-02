@@ -22,6 +22,12 @@ export default function Analyze() {
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2500) }
 
+  // Pick up the URL when navigated here from another page (e.g. 세션 클릭), each time.
+  useEffect(() => {
+    const u = location.state?.url
+    if (u) { setUrl(u); setResult(null) }
+  }, [location.key])
+
   // When the URL's domain has a saved session, reuse it automatically.
   useEffect(() => {
     const domain = hostOf(url)
