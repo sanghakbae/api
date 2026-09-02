@@ -149,11 +149,15 @@ export default function Analyze() {
             {result.sources.length === 0
               ? <span className="muted">{result.reachable === false ? '접근 불가' : '탐지된 API 엔드포인트가 없습니다 (SPA·로그인 필요·비표준 경로일 수 있음).'}</span>
               : result.sources.map((s, i) => <span key={i} className="source-tag">{s.type}</span>)}
-            <span className="muted">· {result.count}개 엔드포인트</span>
+            <span className="muted">· {result.count}개</span>
           </div>
-          <ul className="ep-list">
-            {result.endpoints.map((ep, i) => (
-              <li key={i} className="ep-item">
+
+          {(() => {
+            const eps = result.endpoints || []
+            const testable = eps.filter((e) => !e.guessed)
+            const uncertain = eps.filter((e) => e.guessed)
+            const row = (ep, i) => (
+              <li key={i} className={`ep-item${ep.guessed ? ' ep-guess' : ''}`}>
                 <span className={`method-badge m-${ep.method.toLowerCase()}`}>{ep.method}</span>
                 <div className="ep-meta">
                   <div className="ep-url">{ep.url}</div>
@@ -165,8 +169,27 @@ export default function Analyze() {
                   <button className="link-btn" onClick={() => saveEp(ep)}>저장</button>
                 </div>
               </li>
-            ))}
-          </ul>
+            )
+            return (
+              <>
+                <div className="ep-group-title">✅ 테스트 가능 <span className="muted">({testable.length}) — 호스트가 확실한 엔드포인트</span></div>
+                {testable.length === 0
+                  ? <div className="empty">바로 테스트 가능한 엔드포인트가 없습니다.</div>
+                  : <ul className="ep-list">{testable.map(row)}</ul>}
+
+                {uncertain.length > 0 && (
+                  <>
+                    <div className="ep-group-title warn">⚠️ 확인 필요 <span className="muted">({uncertain.length}) — 경로만 찾음, 호스트는 추정(다른 서버일 수 있음)</span></div>
+                    <div className="g-warn">
+                      아래는 코드에서 <b>경로만</b> 발견해 현재 사이트 주소를 붙인 추정값입니다. 실제 API는 다른 서버(백엔드/외부 SDK)에 있을 수 있어 그대로 보내면 404가 날 수 있어요.
+                      정확히 하려면 <b>F12 → Network</b>에서 실제 요청의 도메인을 확인하거나, 테스터에서 <b>호스트만 바꿔</b> 보내세요.
+                    </div>
+                    <ul className="ep-list">{uncertain.map(row)}</ul>
+                  </>
+                )}
+              </>
+            )
+          })()}
         </div>
       )}
     </div>

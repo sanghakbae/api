@@ -96,22 +96,35 @@ export async function handleAnalyze(request, { localMode = false } = {}) {
     /\bopen\(\s*["'`][A-Z]+["'`]\s*,\s*["'`]([^"'`]+)["'`]/g,                // XMLHttpRequest.open(method, url)
     /\burl\s*:\s*["'`]([^"'`]+)["'`]/g,                                       // jQuery ajax { url: '...' }
   ]
+  // Returns { url, guessed } — guessed=true means the host is NOT known from the
+  // source (a bare path like /v1/...), so we prefixed the page origin as a guess.
+  // Absolute URLs found in the source (with their own host) are reliable.
   const norm = (raw) => {
-    let path = raw
+    let path = raw, guessed = false
     if (path.startsWith('//')) path = 'https:' + path
-    else if (path.startsWith('/')) path = origin + path
+    else if (path.startsWith('/')) { path = origin + path; guessed = true }
     else if (!/^https?:\/\//.test(path)) {
-      try { path = new URL(path, url).toString() } catch { return null }
+      try { path = new URL(path, url).toString(); guessed = true } catch { return null }
     }
     if (!/^https?:\/\//.test(path) || path.length > 300) return null
-    return path
+    return { url: path, guessed }
   }
+  // Paths that belong to third-party SDKs (Firebase/Google auth, analytics…) —
+  // they show up inside library bundles but are NOT the site's own API. Skip them
+  // so we don't attach the wrong host and mislead.
+  const THIRD_PARTY = /(accounts:|:signInWith|:signUp|:sendOobCode|:lookup|recaptchaParams|securetoken|identitytoolkit|googleapis|google-analytics|googletagmanager|gtag|firebaseio|firebaseinstallations|\/token$)/i
   const scanText = (text, found) => {
     for (const re of PATTERNS) {
       let m
       while ((m = re.exec(text)) !== null) {
-        const p = norm(m[1])
-        if (p) found.add(p)
+        const raw = m[1]
+        if (/[$%]\{|%7B|%24|[{}]/.test(raw)) continue        // template-literal / interpolation artifacts
+        const n = norm(raw)
+        if (!n) continue
+        if (n.guessed && THIRD_PARTY.test(raw)) continue      // library-internal path, unknown host
+        // Skip junk from minified code: path must have a segment of 3+ chars or a dot.
+        try { const p = new URL(n.url).pathname; if (!/[a-z0-9]{3,}/i.test(p) && !p.includes('.')) continue } catch { continue }
+        if (!found.has(n.url)) found.set(n.url, n.guessed)
       }
     }
   }
@@ -168,7 +181,7 @@ export async function handleAnalyze(request, { localMode = false } = {}) {
   // 3) Fetch the page HTML, then also fetch its linked JS bundles (SPAs put their
   //    API calls there) and scan everything for endpoint patterns.
   const htmlPhase = async () => {
-    const found = new Set()
+    const found = new Map() // url -> guessed(bool)
     const forms = []
     const links = new Set()
     let scannedJs = 0
@@ -186,7 +199,7 @@ export async function handleAnalyze(request, { localMode = false } = {}) {
         const action = (attrs.match(/action\s*=\s*["']([^"']*)["']/i) || [])[1]
         const method = (attrs.match(/method\s*=\s*["']([^"']*)["']/i) || [])[1]
         const u = norm(action || url)
-        if (u) forms.push({ method: (method || 'GET').toUpperCase(), url: u })
+        if (u) forms.push({ method: (method || 'GET').toUpperCase(), url: u.url })
       }
 
       // Internal <a href> page links (capped) — useful targets on server-rendered sites.
@@ -196,7 +209,7 @@ export async function handleAnalyze(request, { localMode = false } = {}) {
         const h = am[1]
         if (/^(#|javascript:|mailto:|tel:)/i.test(h)) continue
         const u = norm(h)
-        if (u && new URL(u).origin === origin) links.add(u)
+        if (u && new URL(u.url).origin === origin) links.add(u.url)
       }
 
       // Collect linked scripts / module preloads, resolve to absolute, scan up to 12.
@@ -218,9 +231,9 @@ export async function handleAnalyze(request, { localMode = false } = {}) {
 
     if (found.size || forms.length || links.size) {
       sources.push({ type: 'static', url, scannedJs })
-      for (const u of found) endpoints.push({ method: 'GET', url: u, summary: '', source: 'code' })
-      for (const f of forms) endpoints.push({ method: f.method, url: f.url, summary: '폼 제출', source: 'form' })
-      for (const u of links) endpoints.push({ method: 'GET', url: u, summary: '페이지 링크', source: 'link' })
+      for (const [u, guessed] of found) endpoints.push({ method: 'GET', url: u, summary: '', source: 'code', guessed })
+      for (const f of forms) endpoints.push({ method: f.method, url: f.url, summary: '폼 제출', source: 'form', guessed: false })
+      for (const u of links) endpoints.push({ method: 'GET', url: u, summary: '페이지 링크', source: 'link', guessed: false })
     }
   }
 
