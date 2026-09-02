@@ -197,6 +197,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 /* Keys / Sessions */
 .key-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 14px; background: var(--panel); border: 1px solid var(--border-soft); border-radius: 10px; }
+.key-item.clickable { cursor: pointer; transition: border-color .14s, transform .14s; }
+.key-item.clickable:hover { border-color: var(--accent); transform: translateX(2px); }
 .key-name { font-weight: 600; font-size: 12.5px; }
 .key-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .key-form { margin-top: 18px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 11px; width: 100%; box-shadow: var(--shadow); }

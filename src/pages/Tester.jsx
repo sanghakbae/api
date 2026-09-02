@@ -26,6 +26,8 @@ export default function Tester() {
 
   const loadSessions = () => listSessions(user.uid).then(setSessions).catch(() => {})
   useEffect(() => { listKeys(user.uid).then(setKeys).catch(() => {}); loadSessions() }, [user.uid])
+  // Load whatever is sent into the workbench (saved request, session, analyzed endpoint).
+  useEffect(() => { setReq(active); setResponse(null) }, [active])
 
   const patch = (p) => setReq((r) => ({ ...r, ...p }))
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2000) }
