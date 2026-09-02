@@ -112,7 +112,9 @@ export async function handleAnalyze(request, { localMode = false } = {}) {
   // Paths that belong to third-party SDKs (Firebase/Google auth, analytics…) —
   // they show up inside library bundles but are NOT the site's own API. Skip them
   // so we don't attach the wrong host and mislead.
-  const THIRD_PARTY = /(accounts:|:signInWith|:signUp|:sendOobCode|:lookup|recaptchaParams|securetoken|identitytoolkit|googleapis|google-analytics|googletagmanager|gtag|firebaseio|firebaseinstallations|\/token$)/i
+  // Firebase / Google Identity Toolkit & analytics SDK internals — present in
+  // library bundles, NOT the site's own API. Filtered out to avoid noise.
+  const THIRD_PARTY = /(accounts[:/]|:signInWith|:signUp|:sendOobCode|:lookup|:start|:finalize|:withdraw|mfaEnrollment|mfaSignIn|recaptcha(Params|Config|Enterprise)|passwordPolicy|createAuthUri|getOobConfirmationCode|securetoken|identitytoolkit|googleapis|google-analytics|googletagmanager|gtag|firebaseio|firebaseinstallations|firebaselogging|firebaseremoteconfig|\/v1\/projects|__cookies__|\/token$)/i
   const scanText = (text, found) => {
     for (const re of PATTERNS) {
       let m
@@ -122,6 +124,7 @@ export async function handleAnalyze(request, { localMode = false } = {}) {
         const n = norm(raw)
         if (!n) continue
         if (n.guessed && THIRD_PARTY.test(raw)) continue      // library-internal path, unknown host
+        if (/^\/__/.test(new URL(n.url).pathname)) continue   // internal (__cookies__ etc.)
         // Skip junk from minified code: path must have a segment of 3+ chars or a dot.
         try { const p = new URL(n.url).pathname; if (!/[a-z0-9]{3,}/i.test(p) && !p.includes('.')) continue } catch { continue }
         if (!found.has(n.url)) found.set(n.url, n.guessed)
