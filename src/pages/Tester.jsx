@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import KeyValueEditor from '../components/KeyValueEditor.jsx'
 import JsonTree from '../components/JsonTree.jsx'
 import { sendRequest, applyKey, applySession, cookiesFromSetCookie, hostOf, toCurl, parseCurl, getWorkerBase, setWorkerBase, LOCAL_BASE } from '../lib/api.js'
-import { saveRequest, listKeys, listSessions, saveSession, addHistory } from '../lib/store.js'
+import { saveRequest, listKeys, listSessions, upsertSessionByDomain, addHistory } from '../lib/store.js'
 import { applyEnv } from '../lib/env.js'
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
@@ -69,7 +69,7 @@ export default function Tester() {
     if (!cookie) return
     setError(null)
     try {
-      const id = await saveSession(user.uid, { name: host || '세션', domain: host, cookie })
+      const id = await upsertSessionByDomain(user.uid, { name: host || '세션', domain: host, cookie })
       await loadSessions()
       patch({ sessionId: id })
       flash('세션 저장됨 ✓')

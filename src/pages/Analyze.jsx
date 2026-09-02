@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useWorkbench, blankRequest } from '../App.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { analyzeSite, hostOf, getWorkerBase, setWorkerBase, LOCAL_BASE } from '../lib/api.js'
-import { saveRequest, saveSession, addHistory } from '../lib/store.js'
+import { saveRequest, addHistory, upsertSessionByDomain, getSessionByDomain } from '../lib/store.js'
 
 export default function Analyze() {
   const { user } = useAuth()
@@ -13,6 +13,7 @@ export default function Analyze() {
   const [url, setUrl] = useState(location.state?.url || '')
   const [cookie, setCookie] = useState('')
   const [showCookie, setShowCookie] = useState(false)
+  const [savedSession, setSavedSession] = useState(null) // saved session matching the URL's domain
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -20,6 +21,15 @@ export default function Analyze() {
   const [local, setLocal] = useState(getWorkerBase() === LOCAL_BASE)
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2500) }
+
+  // When the URL's domain has a saved session, reuse it automatically.
+  useEffect(() => {
+    const domain = hostOf(url)
+    if (!domain) { setSavedSession(null); return }
+    let cancel = false
+    getSessionByDomain(user.uid, domain).then((s) => { if (!cancel) setSavedSession(s) }).catch(() => {})
+    return () => { cancel = true }
+  }, [url, user.uid])
 
   const switchAnalyzer = (useLocal) => {
     setWorkerBase(useLocal ? LOCAL_BASE : '')
@@ -29,10 +39,11 @@ export default function Analyze() {
   const run = async () => {
     if (!url) return
     setLoading(true); setError(null); setResult(null)
+    // Reuse the saved domain session when the cookie box is empty.
+    const effCookie = cookie.trim() || savedSession?.cookie || ''
     try {
-      const res = await analyzeSite(url, cookie)
+      const res = await analyzeSite(url, effCookie)
       setResult(res)
-      // Log this analysis action to DB history (viewable anytime).
       addHistory(user.uid, { type: 'analyze', url, count: res.count, status: res.reachable === false ? 0 : 200 }).catch(() => {})
     } catch (e) {
       setError(e.message)
@@ -41,13 +52,14 @@ export default function Analyze() {
     }
   }
 
-  // Persist the login cookie as a domain session so the Tester auto-applies it.
+  // Persist the login cookie as a domain session (updates existing — no duplicates).
   const saveDomainSession = async () => {
     const domain = hostOf(url)
     if (!domain || !cookie.trim()) return
     try {
-      await saveSession(user.uid, { name: domain, domain, cookie: cookie.trim() })
-      flash(`'${domain}' 세션 저장됨 — 테스터에서 자동 적용됩니다 ✓`)
+      await upsertSessionByDomain(user.uid, { name: domain, domain, cookie: cookie.trim() })
+      setSavedSession({ domain, cookie: cookie.trim() })
+      flash(`'${domain}' 세션 저장됨 — 테스터/분석에서 자동 적용됩니다 ✓`)
     } catch (e) {
       setError(`세션 저장 실패: ${e.message}`)
     }
@@ -106,9 +118,14 @@ export default function Analyze() {
       </div>
 
       <div className="cookie-row">
-        <button className="link-btn" onClick={() => setShowCookie((v) => !v)}>
-          🔒 로그인 쿠키 {cookie ? '(입력됨)' : '(선택)'} {showCookie ? '▲' : '▼'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button className="link-btn" onClick={() => setShowCookie((v) => !v)}>
+            🔒 로그인 쿠키 {cookie ? '(입력됨)' : '(선택)'} {showCookie ? '▲' : '▼'}
+          </button>
+          {!cookie.trim() && savedSession && (
+            <span className="chip">🍪 저장된 '{savedSession.domain}' 세션 자동 사용 중</span>
+          )}
+        </div>
         {showCookie && (
           <>
             <textarea

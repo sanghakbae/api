@@ -10,6 +10,7 @@ import {
   deleteDoc,
   writeBatch,
   query,
+  where,
   orderBy,
   limit,
   serverTimestamp,
@@ -102,6 +103,27 @@ export async function saveSession(uid, data) {
 
 export async function deleteSession(uid, id) {
   await deleteDoc(doc(sessCol(uid), id))
+}
+
+// Save a domain session without duplicating: update the existing one for that
+// domain if present, otherwise create it.
+export async function upsertSessionByDomain(uid, data) {
+  if (data.domain) {
+    const snap = await getDocs(query(sessCol(uid), where('domain', '==', data.domain)))
+    if (!snap.empty) {
+      const id = snap.docs[0].id
+      await setDoc(doc(sessCol(uid), id), { name: data.name, domain: data.domain, cookie: data.cookie }, { merge: true })
+      return id
+    }
+  }
+  return saveSession(uid, data)
+}
+
+// Find the saved session whose domain matches a host (for auto-reuse).
+export async function getSessionByDomain(uid, domain) {
+  if (!domain) return null
+  const snap = await getDocs(query(sessCol(uid), where('domain', '==', domain)))
+  return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() }
 }
 
 // ---- Action history (persisted in DB, viewable anytime/anywhere) ----
