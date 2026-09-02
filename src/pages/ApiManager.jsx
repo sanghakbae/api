@@ -89,7 +89,7 @@ function ApiEditor({ api, onCancel, onSaved, uid, setErr, err }) {
     try { await saveApi(uid, a); onSaved() } catch (e) { setErr(`저장 실패: ${e.message}`) }
   }
   return (
-    <div className="page-pad" style={{ maxWidth: 900 }}>
+    <div className="page-pad">
       <header className="page-head">
         <h2>{a.id ? 'API 편집' : '새 API 등록'}</h2>
         <div className="head-actions">
