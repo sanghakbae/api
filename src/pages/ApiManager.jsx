@@ -68,6 +68,7 @@ export default function ApiManager() {
                 </div>
                 <div className="ep-actions">
                   <button className="link-btn" onClick={(e) => { e.stopPropagation(); setCur(a); setMode('edit') }}>편집</button>
+                  <button className="link-btn" onClick={async (e) => { e.stopPropagation(); const { id, ...rest } = a; await saveApi(user.uid, { ...rest, name: `${a.name || 'API'} (복사본)` }); load() }}>복제</button>
                   <button className="icon-btn" onClick={async (e) => { e.stopPropagation(); if (confirm('삭제할까요?')) { await deleteApi(user.uid, a.id); load() } }} title="삭제">🗑</button>
                 </div>
               </li>

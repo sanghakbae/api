@@ -78,6 +78,11 @@ export default function Tester() {
     }
   }
 
+  const prettyBody = () => {
+    try { patch({ body: JSON.stringify(JSON.parse(req.body), null, 2) }); flash('정렬됨 ✓') }
+    catch { setError('JSON 형식이 아니라 정렬할 수 없습니다.') }
+  }
+
   const doImport = () => {
     const parsed = parseCurl(importText || '')
     if (!parsed.url) { setError('cURL에서 URL을 찾지 못했습니다. 형식을 확인하세요.'); return }
@@ -190,13 +195,18 @@ export default function Tester() {
         {tab === 'params' && <KeyValueEditor rows={req.params} onChange={(params) => patch({ params })} />}
         {tab === 'headers' && <KeyValueEditor rows={req.headers} onChange={(headers) => patch({ headers })} />}
         {tab === 'body' && (
-          <textarea
-            className="body-input"
-            placeholder='{"key": "value"}'
-            value={req.body}
-            onChange={(e) => patch({ body: e.target.value })}
-            onKeyDown={(e) => (e.metaKey || e.ctrlKey) && e.key === 'Enter' && send()}
-          />
+          <>
+            <div className="body-tools">
+              <button className="link-btn" onClick={prettyBody} disabled={!req.body}>{'{ }'} JSON 정렬</button>
+            </div>
+            <textarea
+              className="body-input"
+              placeholder='{"key": "value"}'
+              value={req.body}
+              onChange={(e) => patch({ body: e.target.value })}
+              onKeyDown={(e) => (e.metaKey || e.ctrlKey) && e.key === 'Enter' && send()}
+            />
+          </>
         )}
       </div>
 

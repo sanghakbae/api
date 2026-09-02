@@ -151,6 +151,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .kv-row { display: flex; align-items: center; gap: 8px; }
 .kv-input { flex: 1; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 7px 10px; transition: border-color .14s; }
 .kv-input:focus { border-color: var(--accent); }
+.body-tools { display: flex; justify-content: flex-end; margin-bottom: 6px; }
 .body-input {
   width: 100%; min-height: 170px; background: var(--panel-2); border: 1px solid var(--border);
   color: var(--text); border-radius: 9px; padding: 12px; font-family: 'SF Mono', Menlo, monospace;

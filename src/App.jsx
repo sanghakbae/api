@@ -1,5 +1,5 @@
 import { useState, createContext, useContext } from 'react'
-import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext.jsx'
 import Login from './pages/Login.jsx'
 import Tester from './pages/Tester.jsx'
@@ -30,7 +30,6 @@ export const blankRequest = () => ({
 export default function App() {
   const { user, loading, configured } = useAuth()
   const [active, setActive] = useState(blankRequest())
-  const location = useLocation()
 
   if (!configured) return <ConfigNotice />
   if (loading) return <div className="center">로딩 중…</div>

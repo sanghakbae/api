@@ -1,21 +1,45 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useWorkbench, blankRequest } from '../App.jsx'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { listRequests, deleteRequest, saveRequest, listHistory, clearHistory, deleteHistory } from '../lib/store.js'
+import { exportAll, importAll, downloadJson } from '../lib/backup.js'
 
 export default function SavedList() {
   const { user } = useAuth()
   const { setActive } = useWorkbench()
   const navigate = useNavigate()
+  const fileInput = useRef(null)
   const [tab, setTab] = useState('saved') // saved | recent
   const [items, setItems] = useState(null)
   const [filter, setFilter] = useState('')
   const [history, setHistory] = useState(null)
+  const [msg, setMsg] = useState('')
 
   const load = () => listRequests(user.uid).then(setItems).catch(() => setItems([]))
   const loadHistory = () => listHistory(user.uid).then(setHistory).catch(() => setHistory([]))
   useEffect(() => { load(); loadHistory() }, [user.uid])
+
+  const doExport = async () => {
+    try {
+      const data = await exportAll(user.uid)
+      const stamp = new Date().toISOString().slice(0, 10)
+      downloadJson(data, `api-manager-backup-${stamp}.json`)
+      setMsg('백업 내려받음 ✓'); setTimeout(() => setMsg(''), 2500)
+    } catch (e) { setMsg(`내보내기 실패: ${e.message}`) }
+  }
+  const doImport = async (e) => {
+    const file = e.target.files?.[0]; e.target.value = ''
+    if (!file) return
+    if (!confirm('백업을 가져오면 기존 항목에 추가됩니다(덮어쓰지 않음). 계속할까요?')) return
+    try {
+      const data = JSON.parse(await file.text())
+      const c = await importAll(user.uid, data)
+      await load()
+      setMsg(`가져옴 ✓ 요청 ${c.requests} · API ${c.apis} · 키 ${c.keys} · 세션 ${c.sessions}`)
+      setTimeout(() => setMsg(''), 4000)
+    } catch (e) { setMsg(`가져오기 실패: ${e.message}`) }
+  }
 
   const open = (item) => {
     setActive({ ...blankRequest(), ...item, headers: item.headers || [], params: item.params || [] })
@@ -63,9 +87,14 @@ export default function SavedList() {
           <button className={tab === 'saved' ? 'tab active' : 'tab'} onClick={() => setTab('saved')}>📁 저장됨 ({items.length})</button>
           <button className={tab === 'recent' ? 'tab active' : 'tab'} onClick={() => { loadHistory(); setTab('recent') }}>🕘 최근 ({history?.length ?? 0})</button>
         </div>
-        {tab === 'saved'
-          ? <input className="search" placeholder="검색…" value={filter} onChange={(e) => setFilter(e.target.value)} />
-          : <button className="link-btn danger" onClick={async () => { if (confirm('최근 기록을 모두 지울까요?')) { await clearHistory(user.uid); setHistory([]) } }}>최근 기록 지우기</button>}
+        <div className="head-actions">
+          {msg && <span className="ok small">{msg}</span>}
+          {tab === 'saved' && <input className="search" placeholder="검색…" value={filter} onChange={(e) => setFilter(e.target.value)} />}
+          {tab === 'recent' && <button className="link-btn danger" onClick={async () => { if (confirm('최근 기록을 모두 지울까요?')) { await clearHistory(user.uid); setHistory([]) } }}>최근 기록 지우기</button>}
+          <button className="btn ghost" onClick={doExport} title="모든 데이터를 JSON으로 내려받기">⬇ 백업</button>
+          <button className="btn ghost" onClick={() => fileInput.current?.click()} title="백업 JSON에서 복원">⬆ 가져오기</button>
+          <input ref={fileInput} type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={doImport} />
+        </div>
       </header>
 
       {tab === 'saved' && (shown.length === 0 ? (
